@@ -1,0 +1,12 @@
+# API-ключ для сервиса курсов валют
+API_KEY=sk_1234567890abcdef1234567890abcde
+
+# Базовый URL API (без endpoint)
+API_BASE_URL=https://api.apilayer.com/exchangerates_data
+
+# Endpoint для конвертации: /convert (готовый result) или /latest (курсы rates)
+API_ENDPOINT=/convert
+
+# Дополнительные настройки (опционально)
+DEBUG=True
+LOG_LEVEL=INFO
