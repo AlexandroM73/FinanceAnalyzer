@@ -2,7 +2,7 @@ import json
 from datetime import datetime
 from flask import Flask, jsonify, request
 import pandas as pd
-from src.utils import get_dashboard_data, get_events_data
+from utils import get_dashboard_data, get_events_data
 
 app = Flask(__name__)
 
