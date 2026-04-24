@@ -3,8 +3,9 @@ from unittest.mock import patch, Mock
 from parameterized import parameterized
 import pandas as pd
 from datetime import datetime, timedelta
+import requests
+
 from src.utils import (
-    find_column,
     fetch_external_data,
     process_dashboard_metrics,
     get_dashboard_data,
@@ -57,8 +58,14 @@ class TestUtils(unittest.TestCase):
         result = find_column(self.test_df, names_list)
         self.assertEqual(result, expected)
 
+    def test_find_column_case_sensitive(self):
+        """Тест чувствительности к регистру"""
+        df_mixed = pd.DataFrame({'Дата Операции': [1, 2, 3]})
+        result = find_column(df_mixed, ['дата операции', 'Дата операции'])
+        self.assertIsNone(result)  # Не находит из‑за регистра
+
     # Тесты для fetch_external_data
-    @patch('requests.get')
+    @patch('utils.requests.get')
     def test_fetch_external_data_success(self, mock_get):
         """Тест успешного запроса к API"""
         mock_response = Mock()
@@ -69,14 +76,14 @@ class TestUtils(unittest.TestCase):
         result = fetch_external_data("https://test.api.com", {'param': 'value'})
         self.assertEqual(result, {'data': 'test'})
 
-    @patch('requests.get')
+    @patch('utils.requests.get')
     def test_fetch_external_data_http_error(self, mock_get):
         """Тест ошибки HTTP-запроса"""
         mock_response = Mock()
         mock_response.raise_for_status.side_effect = requests.exceptions.HTTPError("404 Not Found")
         mock_get.return_value = mock_response
 
-        with patch('logging.getLogger') as mock_get_logger:
+        with patch('utils.logging.getLogger') as mock_get_logger:
             mock_logger = Mock()
             mock_get_logger.return_value = mock_logger
 
@@ -84,12 +91,12 @@ class TestUtils(unittest.TestCase):
                 fetch_external_data("https://error.api.com", {})
             mock_logger.error.assert_called()
 
-    @patch('requests.get')
+    @patch('utils.requests.get')
     def test_fetch_external_data_timeout(self, mock_get):
         """Тест таймаута запроса"""
         mock_get.side_effect = requests.exceptions.Timeout("Request timeout")
 
-        with patch('logging.getLogger') as mock_get_logger:
+        with patch('utils.logging.getLogger') as mock_get_logger:
             mock_logger = Mock()
             mock_get_logger.return_value = mock_logger
 
@@ -104,7 +111,8 @@ class TestUtils(unittest.TestCase):
         metrics = process_dashboard_metrics(data, self.reference_date)
 
         self.assertEqual(metrics['total_records'], 3)
-        self.assertEqual(metrics['recent_activity'], 0)  # Все даты раньше reference_date
+        # Все даты раньше reference_date, поэтому recent_activity = 0
+        self.assertEqual(metrics['recent_activity'], 0)
         self.assertEqual(metrics['average_value'], 150.0)
 
     def test_process_dashboard_metrics_empty_data(self):
@@ -122,9 +130,51 @@ class TestUtils(unittest.TestCase):
         self.assertIsNone(metrics['max_value'])
         self.assertIsNone(metrics['min_value'])
 
+
+    def test_process_dashboard_metrics_with_nan_values(self):
+        """Тест обработки NaN‑значений в данных"""
+        data_with_nan = [
+            {'date': '2023-10-01', 'value': 100},
+            {'date': '2023-10-05', 'value': float('nan')},
+            {'date': '2023-10-10', 'value': 150}
+        ]
+        metrics = process_dashboard_metrics(data_with_nan, self.reference_date)
+
+        self.assertEqual(metrics['total_records'], 3)
+        # NaN игнорируются при расчёте среднего
+        self.assertEqual(metrics['average_value'], 125.0)
+
+    @parameterized.expand([
+        ([], None, {}),  # Пустые данные
+        ([{'date': '2023-10-01', 'value': 50}], datetime(2023, 10, 5), {'total_records': 1, 'recent_activity': 1, 'average_value': 50.0}),
+        ([{'date': '2023-09-01', 'value': 100}], datetime(2023, 10, 5), {'total_records': 1, 'recent_activity': 0, 'average_value': 100.0}),
+    ])
+    def test_process_dashboard_metrics_parametrized(self, data, reference_date, expected_metrics):
+        """Параметризованный тест для process_dashboard_metrics"""
+        if data:
+            # Преобразуем строки дат в datetime
+            for item in data:
+                if 'date' in item:
+                    item['date'] = pd.to_datetime(item['date'])
+
+        metrics = process_dashboard_metrics(data, reference_date)
+
+        # Проверяем наличие всех ожидаемых ключей
+        for key in expected_metrics.keys():
+            self.assertIn(key, metrics)
+
+        # Сравниваем значения по каждому ключу
+        for key, expected_value in expected_metrics.items():
+            if key in metrics:
+                if isinstance(expected_value, float):
+                    # Для чисел с плавающей точкой используем почти равное сравнение
+                    self.assertAlmostEqual(metrics[key], expected_value, places=2)
+                else:
+                    self.assertEqual(metrics[key], expected_value)
+
     # Тесты для get_dashboard_data
-    @patch('src.utils.fetch_external_data')
-    @patch('logging.getLogger')
+    @patch('utils.fetch_external_data')
+    @patch('utils.logging.getLogger')
     def test_get_dashboard_data_success(self, mock_get_logger, mock_fetch_data):
         """Тест успешного получения данных дашборда"""
         mock_logger = Mock()
@@ -138,7 +188,7 @@ class TestUtils(unittest.TestCase):
         self.assertEqual(result['reference_date'], self.reference_date.isoformat())
         mock_logger.info.assert_any_call(f"Получение данных дашборда для даты: {self.reference_date}")
 
-    @patch('src.utils.fetch_external_data')
+    @patch('utils.fetch_external_data')
     def test_get_dashboard_data_api_error(self, mock_fetch_data):
         """Тест ошибки при запросе к API"""
         mock_fetch_data.side_effect = Exception("API Error")
@@ -147,6 +197,22 @@ class TestUtils(unittest.TestCase):
 
         self.assertEqual(result['status'], 'error')
         self.assertTrue('error' in result)
+
+    @parameterized.expand([
+        (datetime(2023, 10, 1), 3),  # Ранняя дата — все события
+        (datetime(2023, 10, 31), 0),  # Поздняя дата — нет событий
+    ])
+    @patch('utils.fetch_external_data')
+    def test_get_dashboard_data_with_different_dates(self, ref_date, expected_recent, mock_fetch):
+        """Параметризованный тест для get_dashboard_data с разными датами"""
+        mock_fetch.return_value = self.test_api_data
+
+        result = get_dashboard_data(ref_date)
+        if result['status'] == 'success':
+            self.assertEqual(
+                result['metrics']['recent_activity'],
+                expected_recent
+            )
 
     # Тесты для get_events_data
     def test_get_events_data_valid_transactions(self):
@@ -170,143 +236,75 @@ class TestUtils(unittest.TestCase):
         self.assertEqual(result['total_count'], 0)
         self.assertEqual(len(result['events']), 0)
 
-        @patch('logging.getLogger')
-        def test_get_events_data_processing_error(self, mock_get_logger):
-            """Тест ошибки обработки данных событий"""
-            mock_logger = Mock()
-            mock_get_logger.return_value = mock_logger
+    @patch('utils.logging.getLogger')
+    def test_get_events_data_processing_error(self, mock_get_logger):
+        """Тест ошибки обработки данных событий"""
+        mock_logger = Mock()
+        mock_get_logger.return_value = mock_logger
 
-            # Создаём DataFrame с некорректными данными для вызова ошибки
-            faulty_df = pd.DataFrame({
-                'Дата операции': ['некорректная_дата', '2023-10-20'],
-                'Сумма': [100.0, 200.0]
-            })
 
-            result = get_events_data(faulty_df)
+        # Создаём DataFrame с некорректными данными для вызова ошибки
+        faulty_df = pd.DataFrame({
+            'Дата операции': ['некорректная_дата', '2023-10-20'],
+            'Сумма': [100.0, 200.0]
+        })
 
-            self.assertEqual(result['status'], 'error')
-            self.assertTrue('error' in result)
-            mock_logger.error.assert_called()
+        result = get_events_data(faulty_df)
 
-        def test_get_events_data_recent_events_filtering(self):
-            """Тест фильтрации событий за последние 30 дней"""
-            # Создаём DataFrame с датами в разных периодах
-            dates = [
-                datetime.now() - timedelta(days=15),  # В пределах 30 дней
-                datetime.now() - timedelta(days=35),  # За пределами 30 дней
-                datetime.now() - timedelta(days=5)  # В пределах 30 дней
-            ]
+        self.assertEqual(result['status'], 'error')
+        self.assertTrue('error' in result)
+        mock_logger.error.assert_called()
 
-            events_df = pd.DataFrame({
-                'Дата операции': dates,
-                'Описание': ['Событие 1', 'Событие 2', 'Событие 3'],
-                'Сумма': [100, 200, 150]
-            })
+    def test_get_events_data_recent_events_filtering(self):
+        """Тест фильтрации событий за последние 30 дней"""
+        # Создаём DataFrame с датами в разных периодах
+        dates = [
+            datetime.now() - timedelta(days=15),  # В пределах 30 дней
+            datetime.now() - timedelta(days=35),  # За пределами 30 дней
+            datetime.now() - timedelta(days=5)  # В пределах 30 дней
+        ]
 
-            result = get_events_data(events_df)
+        events_df = pd.DataFrame({
+            'Дата операции': dates,
+            'Описание': ['Событие 1', 'Событие 2', 'Событие 3'],
+            'Сумма': [100, 200, 150]
+        })
 
-            self.assertEqual(result['total_count'], 2)  # Только 2 события за последние 30 дней
-            self.assertEqual(len(result['events']), 2)
+        result = get_events_data(events_df)
 
-        def test_get_events_data_limit_output(self):
-            """Тест ограничения вывода событий (максимум 50 записей)"""
-            # Создаём DataFrame с 60 событиями
-            large_df = pd.DataFrame([
-                {
-                    'Дата операции': datetime.now() - timedelta(days=i),
-                    'Описание': f'Событие {i}',
-                    'Сумма': i * 10
-                }
-                for i in range(60)
-            ])
+        self.assertEqual(result['total_count'], 2)  # Только 2 события за последние 30 дней
+        self.assertEqual(len(result['events']), 2)
 
-            result = get_events_data(large_df)
-
-            self.assertEqual(result['total_count'], 60)
-            self.assertEqual(len(result['events']), 50)  # Ограничение до 50 записей
-
-        # Дополнительные параметризованные тесты
-        @parameterized.expand([
-            ([], None, {}),  # Пустые данные
-            ([{'date': '2023-10-01'}], datetime(2023, 10, 5), {'total_records': 1, 'recent_activity': 1}),
-            ([{'date': '2023-09-01'}], datetime(2023, 10, 5), {'total_records': 1, 'recent_activity': 0}),
+    def test_get_events_data_limit_output(self):
+        """Тест ограничения вывода событий (максимум 50 записей)"""
+        # Создаём DataFrame с 60 событиями
+        large_df = pd.DataFrame([
+            {
+                'Дата операции': datetime.now() - timedelta(days=i),
+                'Описание': f'Событие {i}',
+                'Сумма': i * 10
+            }
+            for i in range(60)
         ])
-        def test_process_dashboard_metrics_parametrized(self, data, reference_date, expected_metrics):
-            """Параметризованный тест для process_dashboard_metrics"""
-            if data:
-                # Преобразуем строки дат в datetime
-                for item in data:
-                    if 'date' in item:
-                        item['date'] = pd.to_datetime(item['date'])
 
-            metrics = process_dashboard_metrics(data, reference_date)
+        result = get_events_data(large_df)
 
-            for key, value in expected_metrics.items():
-                if key in metrics:
-                    self.assertEqual(metrics[key], value)
+        self.assertEqual(result['total_count'], 60)
+        self.assertEqual(len(result['events']), 50)  # Ограничение до 50 записей
 
-        @parameterized.expand([
-            (datetime(2023, 10, 1), 3),  # Ранняя дата — все события
-            (datetime(2023, 10, 31), 0),  # Поздняя дата — нет событий
-        ])
-        def test_get_dashboard_data_with_different_dates(self, ref_date, expected_recent):
-            """Параметризованный тест для get_dashboard_data с разными датами"""
-            with patch('src.utils.fetch_external_data') as mock_fetch:
-                mock_fetch.return_value = self.test_api_data
+    @patch('utils.logging.getLogger')
+    def test_logging_consistency(self, mock_get_logger):
+        """Тест согласованности логирования во всех функциях"""
+        mock_logger = Mock()
+        mock_get_logger.return_value = mock_logger
 
-                result = get_dashboard_data(ref_date)
-                if result['status'] == 'success':
-                    self.assertEqual(
-                        result['metrics']['recent_activity'],
-                        expected_recent
-                    )
+        # Вызываем разные функции и проверяем логирование
+        find_column(self.test_df, ['Дата операции'])
+        fetch_external_data("https://test.api.com", {})
+        process_dashboard_metrics([], datetime.now())
 
-        # Тесты обработки крайних случаев
-        def test_find_column_case_sensitive(self):
-            """Тест чувствительности к регистру"""
-            df_mixed = pd.DataFrame({'Дата Операции': [1, 2, 3]})
-            result = find_column(df_mixed, ['дата операции', 'Дата операции'])
-            self.assertIsNone(result)  # Не находит из‑за регистра
+        # Проверяем, что логирование вызывалось в каждой функции
+        self.assertTrue(mock_logger.info.call_count >= 3)
 
-        def test_process_dashboard_metrics_with_nan_values(self):
-            """Тест обработки NaN‑значений в данных"""
-            data_with_nan = [
-                {'date': '2023-10-01', 'value': 100},
-                {'date': '2023-10-05', 'value': float('nan')},
-                {'date': '2023-10-10', 'value': 150}
-            ]
-
-            metrics = process_dashboard_metrics(data_with_nan, self.reference_date)
-
-            self.assertEqual(metrics['total_records'], 3)
-            # NaN игнорируются при расчёте среднего
-            self.assertEqual(metrics['average_value'], 125.0)
-
-        @patch('src.utils.requests.get')
-        def test_fetch_external_data_retry_mechanism(self, mock_get):
-            """Тест механизма повторных попыток (если реализован)"""
-            # Этот тест можно расширить, если добавить логику повторных запросов
-            mock_response = Mock()
-            mock_response.status_code = 200
-            mock_response.json.return_value = {'data': 'test'}
-            mock_get.return_value = mock_response
-
-            result = fetch_external_data("https://retry.api.com", {'param': 'value'})
-            self.assertEqual(result, {'data': 'test'})
-
-        @patch('src.utils.logging.getLogger')
-        def test_logging_consistency(self, mock_get_logger):
-            """Тест согласованности логирования во всех функциях"""
-            mock_logger = Mock()
-            mock_get_logger.return_value = mock_logger
-
-            # Вызываем разные функции и проверяем логирование
-            find_column(self.test_df, ['Дата операции'])
-            fetch_external_data("https://test.api.com", {})
-            process_dashboard_metrics([], datetime.now())
-
-            # Проверяем, что логирование вызывалось в каждой функции
-            self.assertTrue(mock_logger.info.call_count >= 3)
-
-    if __name__ == '__main__':
-        unittest.main()
+if __name__ == '__main__':
+    unittest.main()

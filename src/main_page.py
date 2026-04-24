@@ -34,8 +34,18 @@ def load_transactions_from_excel() -> pd.DataFrame:
         if missing:
             raise ValueError(f"Отсутствуют столбцы: {', '.join(missing)}")
 
-        # Преобразуем дату
-        df['Дата операции'] = pd.to_datetime(df['Дата операции'], errors='coerce')
+        # Преобразуем дату с явным указанием формата (устраняет предупреждение)
+        df['Дата операции'] = pd.to_datetime(
+            df['Дата операции'],
+            format='%d.%m.%Y %H:%M:%S',  # Явный формат: день.месяц.год час:минута:секунда
+            errors='coerce'  # Некорректные даты заменяем на NaT
+        )
+
+        # Проверяем, сколько дат не удалось преобразовать
+        failed_conversions = df['Дата операции'].isna().sum()
+        if failed_conversions > 0:
+            logger.warning(f"Не удалось преобразовать {failed_conversions} дат в корректный формат")
+
         # Извлекаем последние 4 цифры карты
         df['card_last_digits'] = df['Номер карты'].astype(str).str[-4:]
 
@@ -47,6 +57,7 @@ def load_transactions_from_excel() -> pd.DataFrame:
     except Exception as e:
         logger.error(f"Ошибка при загрузке данных из Excel: {e}")
         raise
+
 
 def calculate_card_stats(transactions: pd.DataFrame) -> List[Dict[str, Any]]:
     """Рассчитывает статистику по картам: последние 4 цифры, расходы, кешбэк."""

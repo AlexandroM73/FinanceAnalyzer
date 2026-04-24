@@ -1,27 +1,20 @@
 import json
 import logging
-import pandas as pd
 from datetime import datetime
-from typing import List, Dict, Any, Optional
+from typing import Any, Dict, List, Optional
+
+import pandas as pd
+
 from src.main_page import main_page
-
-from src.utils import (
-    fetch_external_data,
-    process_dashboard_metrics,
-    get_dashboard_data,
-    get_events_data,
-    find_column
-)
-
+from src.reports import find_column, spending_by_category, spending_by_weekday, spending_by_workday
 from src.services import (
     calculate_cashback_categories,
     investment_bank,
     simple_transaction_search,
     transactions_with_phone_numbers,
-    transfers_to_individuals
+    transfers_to_individuals,
 )
-
-from src.reports import spending_by_category, spending_by_weekday, spending_by_workday
+from src.utils import fetch_external_data, get_dashboard_data, get_events_data, process_dashboard_metrics
 
 # Очищаем существующие обработчики, чтобы избежать конфликтов
 logging.getLogger().handlers.clear()
@@ -35,6 +28,7 @@ logging.basicConfig(
     ]
 )
 logger = logging.getLogger(__name__)  # Определяем logger ДО любых вызовов
+
 
 
 def load_transactions_from_excel() -> pd.DataFrame:
@@ -216,11 +210,13 @@ def run_investment_service(transactions_df: pd.DataFrame):
 
 
 
-def run_simple_search(transactions: List[Dict[str, Any]]):
+def run_simple_search(transactions_df: pd.DataFrame):
     """Запуск простого поиска."""
     query = get_user_input("Введите поисковый запрос: ")
-    result = simple_transaction_search(query, transactions)
+    # Передаём DataFrame, а не список словарей
+    result = simple_transaction_search(query, transactions_df)
     display_result(result)
+
 
 
 def run_phone_search(transactions: List[Dict[str, Any]]):
@@ -229,34 +225,66 @@ def run_phone_search(transactions: List[Dict[str, Any]]):
     display_result(result)
 
 
-def run_transfers_search(transactions: List[Dict[str, Any]]):
-    """Запуск поиска переводов физлицам."""
-    result = transfers_to_individuals(transactions)
-    display_result(result)
+def simple_transaction_search(query: str, data: pd.DataFrame) -> pd.DataFrame:
+    if data.empty:
+        return pd.DataFrame()
+    # Ищем во всех строковых колонках
+    mask = data.astype(str).apply(lambda row: row.str.contains(query, case=False, na=False)).any(axis=1)
+    return data[mask]
 
 
+
+# def run_category_report(transactions_df: pd.DataFrame):
+#     """Запуск отчёта «Траты по категории»."""
+#     category = get_user_input("Категория (например, 'Продукты'): ")
+#
+#     while True:
+#         date_str = get_user_input("Дата отсчёта (ГГГГ‑ММ‑ДД): ")
+#         try:
+#             reference_date = datetime.strptime(date_str, "%Y-%m-%d")
+#             break
+#         except ValueError:
+#             print("Ошибка: неверный формат даты. Введите в формате ГГГГ‑ММ‑ДД (например, 2023‑10‑15).")
+#
+#     try:
+#         # Фильтруем DataFrame по дате (сравниваем datetime с Timestamp)
+#         filtered_df = transactions_df[
+#             transactions_df['Дата операции'].dt.date == reference_date.date()
+#         ]
+#         result = spending_by_category(filtered_df, category, date_str)
+#         display_result(result, "ОТЧЁТ «ТРАТЫ ПО КАТЕГОРИИ»")
+#     except Exception as e:
+#         logger.error(f"Ошибка при формировании отчёта: {e}")
+#         print(f"Ошибка при формировании отчёта: {e}")
 def run_category_report(transactions_df: pd.DataFrame):
     """Запуск отчёта «Траты по категории»."""
     category = get_user_input("Категория (например, 'Продукты'): ")
 
+    # Получаем дату отсчёта с валидацией формата
     while True:
-        date_str = get_user_input("Дата отсчёта (ГГГГ‑ММ‑ДД): ")
+        date_str = get_user_input("Дата отсчёта (ГГГГ‑ММ‑ДД, или оставьте пустым для текущей даты): ")
+        if not date_str.strip():  # Если пользователь оставил поле пустым
+            reference_date = None  # Используем текущую дату в функции отчёта
+            break
         try:
-            reference_date = datetime.strptime(date_str, "%Y-%m-%d")
+            # Проверяем корректность формата даты
+            datetime.strptime(date_str, "%Y-%m-%d")
+            reference_date = date_str
             break
         except ValueError:
-            print("Ошибка: неверный формат даты. Введите в формате ГГГГ‑ММ‑ДД (например, 2023‑10‑15).")
+            print("Ошибка: неверный формат даты. Введите в формате ГГГГ‑ММ‑ДД (например, 2023‑10‑15) или оставьте поле пустым.")
 
     try:
-        # Фильтруем DataFrame по дате (сравниваем datetime с Timestamp)
-        filtered_df = transactions_df[
-            transactions_df['Дата операции'].dt.date == reference_date.date()
-        ]
-        result = spending_by_category(filtered_df, category, date_str)
+        # Передаём весь DataFrame и параметры в функцию отчёта
+        # Функция spending_by_category сама выполнит фильтрацию за последние 3 месяца
+        result = spending_by_category(transactions_df, category, reference_date)
+
+        # Отображаем результат
         display_result(result, "ОТЧЁТ «ТРАТЫ ПО КАТЕГОРИИ»")
+
     except Exception as e:
         logger.error(f"Ошибка при формировании отчёта: {e}")
-        print(f"Ошибка при формировании отчёта: {e}")
+        print(f"Произошла ошибка при формировании отчёта: {e}")
 
 
 def run_weekday_report(transactions_df: pd.DataFrame):

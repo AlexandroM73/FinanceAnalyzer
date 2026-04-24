@@ -180,140 +180,133 @@ class TestServices(unittest.TestCase):
         result = simple_transaction_search(self.test_transactions_df, '2023-10')
         self.assertEqual(len(result), 3)  # 3 транзакции в октябре
 
-        def test_simple_transaction_search_not_found(self):
-            """Поиск, когда ничего не найдено"""
-            result = simple_transaction_search(
-                self.test_transactions_df,
-                'несуществующий_термин',
-                'Категория'
-            )
-            self.assertEqual(len(result), 0)
+    def test_simple_transaction_search_not_found(self):
+        """Поиск, когда ничего не найдено"""
+        result = simple_transaction_search(
+            self.test_transactions_df, 'Не существующая категория'
+        )
+        self.assertEqual(len(result), 0)
 
-        def test_simple_transaction_search_column_not_found(self):
-            """Тест с несуществующей колонкой"""
-            with self.assertRaises(ValueError) as context:
-                simple_transaction_search(
-                    self.test_transactions_df,
-                    'поиск',
-                    'несуществующая_колонка'
-                )
-            self.assertIn('Колонка \'несуществующая_колонка\' не найдена', str(context.exception))
+    def test_simple_transaction_search_case_insensitive(self):
+        """Поиск без учёта регистра"""
+        result = simple_transaction_search(
+            self.test_transactions_df,
+            'продукты',  # в нижнем регистре
+            'Категория'
+        )
+        self.assertEqual(len(result), 2)
+        self.assertTrue(all(result['Категория'] == 'Продукты'))
 
         # Тесты для transactions_with_phone_numbers
-        def test_transactions_with_phone_numbers_found(self):
-            """Тест нахождения телефонных номеров"""
-            # Создаём DataFrame с телефонными номерами
-            df_with_phones = pd.DataFrame([
-                {
-                    'Дата платежа': '2023-10-15',
-                    'Категория': 'Перевод',
-                    'Сумма операции': 1000.0,
-                    'Комментарий': 'Перевод +79161234567'
-                },
-                {
-                    'Дата платежа': '2023-10-20',
-                    'Категория': 'Оплата',
-                    'Сумма операции': 500.0,
-                    'Комментарий': 'Оплата 89167654321'
-                }
-            ])
 
-            result = transactions_with_phone_numbers(df_with_phones)
-            self.assertEqual(len(result), 2)
-            self.assertTrue('Найденный номер' in result.columns)
-            self.assertTrue(any('+79161234567' in str(num) for num in result['Найденный номер']))
+    def test_transactions_with_phone_numbers_found(self):
+        """Тест нахождения транзакций с номерами телефонов"""
+        # Создаём DataFrame с номерами телефонов
+        df_with_phones = self.test_transactions_df.copy()
+        df_with_phones['Комментарий'] = [
+            'Перевод +79161234567',
+            'Оплата +79267654321',
+            'Без номера',
+            'Перевод +79031112233'
+        ]
 
-        def test_transactions_with_phone_numbers_not_found(self):
-            """Тест когда номера не найдены"""
-            result = transactions_with_phone_numbers(self.test_transactions_df)
-            self.assertEqual(len(result), 0)
+        result = transactions_with_phone_numbers(df_with_phones)
+        self.assertEqual(len(result), 3)  # 3 транзакции с номерами
+        # Проверяем, что все результаты содержат номера телефонов
+        phone_pattern = r'\+7\d{10}'
+        for comment in result['Комментарий']:
+            self.assertRegex(comment, phone_pattern)
+
+    def test_transactions_with_phone_numbers_not_found(self):
+        """Тест когда номера телефонов не найдены"""
+        # DataFrame без номеров телефонов
+        df_no_phones = self.test_transactions_df.copy()
+        df_no_phones['Комментарий'] = ['Без номера', 'Без номера', 'Без номера', 'Без номера']
+
+        result = transactions_with_phone_numbers(df_no_phones)
+        self.assertEqual(len(result), 0)
+
+    def test_transactions_with_phone_numbers_empty_dataframe(self):
+        """Тест с пустым DataFrame"""
+        empty_df = pd.DataFrame()
+        result = transactions_with_phone_numbers(empty_df)
+        self.assertEqual(len(result), 0)
 
         # Тесты для transfers_to_individuals
-        def test_transfers_to_individuals_found(self):
-            """Тест нахождения переводов физлицам"""
-            # Создаём DataFrame с переводами физлицам
-            df_with_transfers = pd.DataFrame([
-                {
-                    'Дата платежа': '2023-10-15',
-                    'Категория': 'Перевод',
-                    'Сумма операции': 1500.0,
-                    'Описание': 'Перевод физлицу Иванову И.И.'
-                },
-                {
-                    'Дата платежа': '2023-10-20',
-                    'Категория': 'Оплата',
-                    'Сумма операции': 800.0,
-                    'Описание': 'Перевести деньги на карту'
-                }
-            ])
 
-            result = transfers_to_individuals(df_with_transfers)
-            self.assertEqual(len(result), 2)
-            self.assertTrue('Ключевое слово' in result.columns)
+    def test_transfers_to_individuals_found(self):
+        """Тест нахождения переводов физлицам"""
+        # Создаём DataFrame с переводами физлицам
+        df_with_transfers = self.test_transactions_df.copy()
+        df_with_transfers['Тип операции'] = [
+            'Перевод',
+            'Оплата',
+            'Перевод физлицу',
+            'Перевод Иванову И.И.'
+        ]
+        df_with_transfers['Получатель'] = [
+            'Банк',
+            'Магазин',
+            'Петров А.С.',
+            'Иванов И.И.'
+        ]
 
-        def test_transfers_to_individuals_not_found(self):
-            """Тест когда переводы физлицам не найдены"""
-            result = transfers_to_individuals(self.test_transactions_df)
-            self.assertEqual(len(result), 0)
+        result = transfers_to_individuals(df_with_transfers)
+        self.assertEqual(len(result), 2)  # 2 перевода физлицам
+        expected_recipients = ['Петров А.С.', 'Иванов И.И.']
+        self.assertListEqual(list(result['Получатель']), expected_recipients)
 
-        # Дополнительные тесты с моками для проверки логирования
-        @patch('logging.getLogger')
-        def test_investment_bank_logging_calls(self, mock_get_logger):
-            """Тест проверяет, что функция делает вызовы логирования"""
-            mock_logger = Mock()
-            mock_get_logger.return_value = mock_logger
+    def test_transfers_to_individuals_not_found(self):
+        """Тест когда переводы физлицам не найдены"""
+        # DataFrame без переводов физлицам
+        df_no_transfers = self.test_transactions_df.copy()
+        df_no_transfers['Тип операции'] = ['Оплата', 'Оплата', 'Оплата', 'Оплата']
+        df_no_transfers['Получатель'] = ['Банк', 'Магазин', 'Сервис', 'Компания']
 
-            investment_bank("2023-10", self.test_transactions_list, 10)
+        result = transfers_to_individuals(df_no_transfers)
+        self.assertEqual(len(result), 0)
 
-            # Проверяем, что были вызовы логирования
-            self.assertTrue(mock_logger.info.called)
-            # Должен быть как минимум запуск и завершение
-            info_calls = [call[0][0] for call in mock_logger.info.call_args_list]
-            self.assertTrue(any("Запуск сервиса 'investment_bank'" in call for call in info_calls))
-            self.assertTrue(any("Расчёт Инвесткопилки завершён" in call for call in info_calls))
+    def test_transfers_to_individuals_empty_dataframe(self):
+        """Тест с пустым DataFrame"""
+        empty_df = pd.DataFrame()
+        result = transfers_to_individuals(empty_df)
+        self.assertEqual(len(result), 0)
 
-        @patch('logging.getLogger')
-        def test_calculate_cashback_categories_logging(self, mock_get_logger):
-            """Тест логирования в calculate_cashback_categories"""
-            mock_logger = Mock()
-            mock_get_logger.return_value = mock_logger
+        # Дополнительные тесты для edge cases
 
-            calculate_cashback_categories(2023, 10, self.test_transactions_df)
+    def test_calculate_cashback_categories_edge_cases(self):
+        """Тест крайних случаев для расчёта кешбэка"""
+        # Тест с одной транзакцией
+        single_transaction = pd.DataFrame([{
+            'Дата платежа': '2023-10-15',
+            'Категория': 'Продукты',
+            'Сумма операции': 100.0,
+            'Кэшбэк': True
+        }])
+        result = calculate_cashback_categories(2023, 10, single_transaction)
+        self.assertEqual(result['total_amount'], 100.0)
 
-            self.assertTrue(mock_logger.info.called)
-            info_calls = [call[0][0] for call in mock_logger.info.call_args_list]
-            self.assertTrue(any("Запуск сервиса 'calculate_cashback_categories'" in call for call in info_calls))
-            self.assertTrue(any("Расчёт кешбэка завершён" in call for call in info_calls))
+        # Тест с нулевыми суммами
+        zero_amount = pd.DataFrame([{
+            'Дата платежа': '2023-10-15',
+            'Категория': 'Продукты',
+            'Сумма операции': 0.0,
+            'Кэшбэк': True
+        }])
+        result = calculate_cashback_categories(2023, 10, zero_amount)
+        self.assertEqual(result['total_amount'], 0.0)
 
-        # Тест обработки ошибок в transfers_to_individuals
-        @patch('logging.getLogger')
-        def test_transfers_to_individuals_with_errors(self, mock_get_logger):
-            """Тест обработки ошибок в transfers_to_individuals"""
-            mock_logger = Mock()
-            mock_get_logger.return_value = mock_logger
+    @patch('logging.getLogger')
+    def test_investment_bank_logging_on_error(self, mock_get_logger):
+        """Тест логирования ошибок в investment_bank"""
+        mock_logger = Mock()
+        mock_get_logger.return_value = mock_logger
 
-            # Создаём DataFrame с некорректными данными в одной колонке
-            problematic_df = pd.DataFrame([
-                {'Дата платежа': '2023-10-15', 'Описание': 'Перевод физлицу'},
-                {'Дата платежа': '2023-10-20', 'Описание': None}  # None вызовет ошибку при поиске
-            ])
+        # Используем некорректный лимит, который должен вызвать ошибку
+        result = investment_bank("2023-10", self.test_transactions_list, -5)
+        self.assertEqual(result, 0.0)
+        mock_logger.error.assert_called()
 
-            result = transfers_to_individuals(problematic_df)
-            self.assertEqual(len(result), 1)  # Должна быть найдена одна транзакция
-            self.assertTrue(mock_logger.warning.called)  # Должна быть запись об ошибке
 
-        # Тест крайних случаев для investment_bank
-        def test_investment_bank_edge_cases(self):
-            """Тест крайних случаев для Инвесткопилки"""
-            edge_transactions = [
-                {"Дата операции": "2023-10-01", "Сумма операции": 0.00},  # Нулевая сумма
-                {"Дата операции": "2023-10-02", "Сумма операции": -50.00},  # Отрицательная сумма
-                {"Дата операции": "2023-10-03", "Сумма операции": 100.00}  # Точное кратное
-            ]
-
-            result = investment_bank("2023-10", edge_transactions, 10)
-            # Нулевая и отрицательная суммы дают 0, точное кратное даёт 0
-            self.assertEqual(result, 0.0)
-
-    if __name__ == '__main__':
-        unittest.main()
+if __name__ == '__main__':
+    unittest.main()

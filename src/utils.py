@@ -8,15 +8,6 @@ from datetime import datetime, timedelta
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-def find_column(df: pd.DataFrame, possible_names: list) -> Optional[str]:
-    """
-    Ищет колонку в DataFrame по списку возможных имён.
-    Возвращает первое найденное имя колонки или None.
-    """
-    for name in possible_names:
-        if name in df.columns:
-            return name
-    return None
 
 
 def fetch_external_data(api_url: str, params: dict) -> dict:
