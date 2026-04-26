@@ -9,6 +9,15 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
+def find_column(dataframe, column_names):
+    """
+    Ищет первый существующий столбец из списка column_names в DataFrame.
+    Возвращает имя столбца или None, если ни один не найден.
+    """
+    for col in column_names:
+        if col in dataframe.columns:
+            return col
+    return None
 
 def fetch_external_data(api_url: str, params: dict) -> dict:
     """

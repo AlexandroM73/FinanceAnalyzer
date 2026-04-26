@@ -61,10 +61,10 @@ def calculate_cashback_categories(
     df = transactions.copy()
 
     # Ищем корректные имена столбцов
-    date_col = find_column(df, ['Дата платежа', 'Дата операции', 'Payment Date', 'Date'])
-    category_col = find_column(df, ['Категория', 'Category'])
-    amount_col = find_column(df, ['Сумма операции', 'Amount', 'Сумма'])
-    cashback_col = find_column(df, ['Кэшбэк', 'Cashback', 'IsCashback'])
+    date_col = find_column_in_dict(df, ['Дата платежа', 'Дата операции', 'Payment Date', 'Date'])
+    category_col = find_column_in_dict(df, ['Категория', 'Category'])
+    amount_col = find_column_in_dict(df, ['Сумма операции', 'Amount', 'Сумма'])
+    cashback_col = find_column_in_dict(df, ['Кэшбэк', 'Cashback', 'IsCashback'])
 
     # Проверяем наличие всех необходимых столбцов
     if not all([date_col, category_col, amount_col]):

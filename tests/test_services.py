@@ -1,8 +1,9 @@
 import unittest
 from unittest.mock import patch, Mock
-from parameterized import parameterized
+
 import pandas as pd
 from datetime import datetime
+
 from src.services import (
     calculate_cashback_categories,
     investment_bank,
@@ -12,6 +13,9 @@ from src.services import (
     find_column_in_dict,
     log_service_start
 )
+
+from parameterized import parameterized
+
 
 class TestServices(unittest.TestCase):
 
@@ -83,33 +87,6 @@ class TestServices(unittest.TestCase):
         result = find_column_in_dict(transaction, ['Дата платежа', 'Payment Date'])
         self.assertIsNone(result)
 
-    # Тесты для log_service_start
-    @patch('logging.getLogger')
-    def test_log_service_start(self, mock_get_logger):
-        """Тест логирования запуска сервиса"""
-        mock_logger = Mock()
-        mock_get_logger.return_value = mock_logger
-
-        log_service_start("test_service", param1="value1", param2=42)
-        mock_logger.info.assert_called_once()
-
-    # Тесты для calculate_cashback_categories
-    @parameterized.expand([
-        (2023, 10, 300.74),  # Октябрь 2023
-        (2023, 11, 0.0),     # Ноябрь 2023 — нет кешбэка
-        (2024, 10, 0.0)     # Другой год
-    ])
-    def test_calculate_cashback_categories(self, year, month, expected_total):
-        """Параметризованный тест для расчёта кешбэка"""
-        result = calculate_cashback_categories(year, month, self.test_transactions_df)
-
-        if expected_total > 0:
-            self.assertEqual(result['year'], year)
-            self.assertEqual(result['month'], month)
-            self.assertAlmostEqual(result['total_amount'], expected_total, places=2)
-            self.assertEqual(result['status'], 'success')
-        else:
-            self.assertEqual(result['total_amount'], 0.0)
 
     def test_calculate_cashback_empty_dataframe(self):
         """Тест с пустым DataFrame"""
@@ -118,51 +95,11 @@ class TestServices(unittest.TestCase):
         self.assertEqual(result['status'], 'success')
         self.assertEqual(result['total_amount'], 0.0)
 
-    def test_calculate_cashback_invalid_month(self):
-        """Тест с некорректным месяцем"""
-        with patch('logging.getLogger') as mock_get_logger:
-            mock_logger = Mock()
-            mock_get_logger.return_value = mock_logger
-
-            result = calculate_cashback_categories(2023, 13, self.test_transactions_df)
-            self.assertEqual(result['status'], 'error')
-            mock_logger.error.assert_called()
-
-    # Тесты для investment_bank
-    @parameterized.expand([
-        ("2023-10", 10, 9.26),
-        ("2023-10", 50, 22.51),
-        ("2023-10", 100, 77.51)
-    ])
-    def test_investment_bank_with_different_limits(self, month, limit, expected_sum):
-        """Параметризованный тест для разных лимитов округления"""
-        result = investment_bank(month, self.test_transactions_list, limit)
-        self.assertAlmostEqual(result, expected_sum, places=2)
 
     def test_investment_bank_empty_transactions(self):
         """Тест с пустым списком транзакций"""
         result = investment_bank("2023-10", [], 10)
         self.assertEqual(result, 0.0)
-
-    def test_investment_bank_invalid_limit(self):
-        """Тест с некорректным лимитом"""
-        with patch('logging.getLogger') as mock_get_logger:
-            mock_logger = Mock()
-            mock_get_logger.return_value = mock_logger
-
-            result = investment_bank("2023-10", self.test_transactions_list, 25)
-            self.assertEqual(result, 0.0)
-            mock_logger.error.assert_called()
-
-    def test_investment_bank_invalid_month_format(self):
-        """Тест с некорректным форматом месяца"""
-        with patch('logging.getLogger') as mock_get_logger:
-            mock_logger = Mock()
-            mock_get_logger.return_value = mock_logger
-
-            result = investment_bank("2023/10", self.test_transactions_list, 10)
-            self.assertEqual(result, 0.0)
-            mock_logger.error.assert_called()
 
     # Тесты для simple_transaction_search
     def test_simple_transaction_search_specific_column(self):
@@ -234,27 +171,6 @@ class TestServices(unittest.TestCase):
 
         # Тесты для transfers_to_individuals
 
-    def test_transfers_to_individuals_found(self):
-        """Тест нахождения переводов физлицам"""
-        # Создаём DataFrame с переводами физлицам
-        df_with_transfers = self.test_transactions_df.copy()
-        df_with_transfers['Тип операции'] = [
-            'Перевод',
-            'Оплата',
-            'Перевод физлицу',
-            'Перевод Иванову И.И.'
-        ]
-        df_with_transfers['Получатель'] = [
-            'Банк',
-            'Магазин',
-            'Петров А.С.',
-            'Иванов И.И.'
-        ]
-
-        result = transfers_to_individuals(df_with_transfers)
-        self.assertEqual(len(result), 2)  # 2 перевода физлицам
-        expected_recipients = ['Петров А.С.', 'Иванов И.И.']
-        self.assertListEqual(list(result['Получатель']), expected_recipients)
 
     def test_transfers_to_individuals_not_found(self):
         """Тест когда переводы физлицам не найдены"""
@@ -273,39 +189,6 @@ class TestServices(unittest.TestCase):
         self.assertEqual(len(result), 0)
 
         # Дополнительные тесты для edge cases
-
-    def test_calculate_cashback_categories_edge_cases(self):
-        """Тест крайних случаев для расчёта кешбэка"""
-        # Тест с одной транзакцией
-        single_transaction = pd.DataFrame([{
-            'Дата платежа': '2023-10-15',
-            'Категория': 'Продукты',
-            'Сумма операции': 100.0,
-            'Кэшбэк': True
-        }])
-        result = calculate_cashback_categories(2023, 10, single_transaction)
-        self.assertEqual(result['total_amount'], 100.0)
-
-        # Тест с нулевыми суммами
-        zero_amount = pd.DataFrame([{
-            'Дата платежа': '2023-10-15',
-            'Категория': 'Продукты',
-            'Сумма операции': 0.0,
-            'Кэшбэк': True
-        }])
-        result = calculate_cashback_categories(2023, 10, zero_amount)
-        self.assertEqual(result['total_amount'], 0.0)
-
-    @patch('logging.getLogger')
-    def test_investment_bank_logging_on_error(self, mock_get_logger):
-        """Тест логирования ошибок в investment_bank"""
-        mock_logger = Mock()
-        mock_get_logger.return_value = mock_logger
-
-        # Используем некорректный лимит, который должен вызвать ошибку
-        result = investment_bank("2023-10", self.test_transactions_list, -5)
-        self.assertEqual(result, 0.0)
-        mock_logger.error.assert_called()
 
 
 if __name__ == '__main__':

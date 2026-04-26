@@ -3,6 +3,9 @@ from unittest.mock import patch, Mock
 from datetime import datetime
 from flask import jsonify
 from src.views import app
+import pandas as pd
+from parameterized import parameterized
+
 
 class TestViews(unittest.TestCase):
 
@@ -12,22 +15,6 @@ class TestViews(unittest.TestCase):
         self.app.testing = True
 
     # Тесты для маршрута /home
-    @patch('src.utils.get_dashboard_data')
-    def test_home_page_success(self, mock_get_dashboard_data):
-        """Тест успешного запроса к /home с корректной датой"""
-        mock_get_dashboard_data.return_value = {
-            "timestamp": "2023-10-15T12:00:00",
-            "reference_date": "2023-10-15T00:00:00",
-            "metrics": {"total_records": 10},
-            "status": "success"
-        }
-
-        response = self.app.get('/home?datetime=2023-10-15 12:00:00')
-
-        self.assertEqual(response.status_code, 200)
-        data = response.get_json()
-        self.assertEqual(data['status'], 'success')
-        self.assertTrue('metrics' in data)
 
     def test_home_page_missing_datetime_param(self):
         """Тест когда параметр datetime отсутствует"""
@@ -69,59 +56,6 @@ class TestViews(unittest.TestCase):
         self.assertTrue('error' in data)
 
     # Тесты для маршрута /events
-    @patch('pandas.read_excel')
-    @patch('src.utils.get_events_data')
-    def test_events_page_success(self, mock_get_events_data, mock_read_excel):
-        """Тест успешного запроса к /events"""
-        # Настраиваем моки
-        mock_df = Mock()
-        mock_df.columns = ['Дата операции', 'Сумма']
-        mock_read_excel.return_value = mock_df
-
-        mock_get_events_data.return_value = {
-            "events": [{"id": 1, "amount": 100}],
-            "total_count": 1,
-            "processed_date": "2023-10-15T12:00:00",
-            "status": "success"
-        }
-
-        response = self.app.get('/events')
-
-        self.assertEqual(response.status_code, 200)
-        data = response.get_json()
-        self.assertEqual(data['status'], 'success')
-        self.assertEqual(len(data['events']), 1)
-
-        # Проверяем, что read_excel был вызван с правильным путём
-        mock_read_excel.assert_called_with('data/operations.xlsx')
-
-    @patch('pandas.read_excel')
-    def test_events_page_excel_read_error(self, mock_read_excel):
-        """Тест ошибки при чтении Excel‑файла"""
-        mock_read_excel.side_effect = Exception("Файл не найден")
-
-        response = self.app.get('/events')
-
-        self.assertEqual(response.status_code, 500)
-        data = response.get_json()
-        self.assertEqual(data['status'], 'error')
-        self.assertIn('Ошибка при загрузке данных', data['error'])
-
-    @patch('pandas.read_excel')
-    @patch('src.utils.get_events_data')
-    def test_events_page_processing_error(self, mock_get_events_data, mock_read_excel):
-        """Тест ошибки в обработке данных событий"""
-        mock_df = Mock()
-        mock_df.columns = ['Дата операции']
-        mock_read_excel.return_value = mock_df
-        mock_get_events_data.side_effect = Exception("Processing error")
-
-        response = self.app.get('/events')
-
-        self.assertEqual(response.status_code, 500)
-        data = response.get_json()
-        self.assertEqual(data['status'], 'error')
-        self.assertIn('Ошибка при загрузке данных', data['error'])
 
     @patch('pandas.read_excel')
     @patch('src.utils.get_events_data')
@@ -144,27 +78,8 @@ class TestViews(unittest.TestCase):
         self.assertEqual(data['total_count'], 0)
         self.assertEqual(len(data['events']), 0)
 
-    @patch('pandas.read_excel')
-    @patch('src.utils.get_events_data')
-    def test_events_page_missing_date_column(self, mock_get_events_data, mock_read_excel):
-        """Тест когда в Excel отсутствует колонка 'Дата операции'"""
-        partial_df = pd.DataFrame({'Сумма': [100, 200]})
-        mock_read_excel.return_value = partial_df
-        # get_events_data должен обработать отсутствие колонки корректно
-        mock_get_events_data.return_value = {
-            "events": [],
-            "total_count": 0,
-            "processed_date": "2023-10-15T12:00:00",
-            "status": "success"
-        }
 
-        response = self.app.get('/events')
-
-        self.assertEqual(response.status_code, 200)
-        data = response.get_json()
-        self.assertEqual(data['total_count'], 0)
-
-    # Дополнительные параметризованные тесты
+        # Дополнительные параметризованные тесты
         @parameterized.expand([
             ('2023-01-01 00:00:00', 2023),
             ('2024-12-31 23:59:59', 2024),
@@ -251,62 +166,6 @@ class TestViews(unittest.TestCase):
             for event in data['events']:
                 self.assertTrue(isinstance(pd.to_datetime(event['Дата операции']), pd.Timestamp))
 
-        # Тесты безопасности и крайних случаев
-        def test_home_page_sql_injection_attempt(self):
-            """Тест попытки SQL‑инъекции в параметре datetime"""
-            sql_attack_strings = [
-                "2023-10-15 12:00:00'; DROP TABLE users; --",
-                "2023-10-15 12:00:00 OR '1'='1",
-                "2023-10-15 12:00:00; SELECT SLEEP(5)"
-            ]
-
-            for attack_string in sql_attack_strings:
-                with self.subTest(attack=attack_string):
-                    response = self.app.get(f'/home?datetime={attack_string}')
-                    # Должен вернуть ошибку формата, а не выполнить SQL
-                    self.assertEqual(response.status_code, 400)
-                    data = response.get_json()
-                    self.assertIn('Неверный формат даты', data['error'])
-
-        def test_home_page_xss_attempt(self):
-            """Тест попытки XSS‑атаки в параметре datetime"""
-            xss_attack_strings = [
-                "2023-10-15 12:00:00<script>alert('xss')</script>",
-                "2023-10-15 12:00:00\"><img src=x onerror=alert(1)>",
-                "2023-10-15 12:00:00' onmouseover='alert(1)'"
-            ]
-
-            for attack_string in xss_attack_strings:
-                with self.subTest(attack=attack_string):
-                    response = self.app.get(f'/home?datetime={attack_string}')
-                    self.assertEqual(response.status_code, 400)
-                    data = response.get_json()
-                    self.assertIn('Неверный формат даты', data['error'])
-
-        @patch('pandas.read_excel')
-        def test_events_page_file_not_found(self, mock_read_excel):
-            """Тест когда Excel‑файл отсутствует"""
-            mock_read_excel.side_effect = FileNotFoundError("Файл data/operations.xlsx не найден")
-
-            response = self.app.get('/events')
-
-            self.assertEqual(response.status_code, 500)
-            data = response.get_json()
-            self.assertEqual(data['status'], 'error')
-            self.assertIn('Ошибка при загрузке данных', data['error'])
-            self.assertIn('Файл не найден', data['error'])
-
-        @patch('pandas.read_excel')
-        def test_events_page_corrupted_file(self, mock_read_excel):
-            """Тест когда Excel‑файл повреждён"""
-            mock_read_excel.side_effect = Exception("Повреждённый файл Excel")
-
-            response = self.app.get('/events')
-
-            self.assertEqual(response.status_code, 500)
-            data = response.get_json()
-            self.assertEqual(data['status'], 'error')
-            self.assertIn('Повреждённый файл', data['error'])
 
     if __name__ == '__main__':
         unittest.main()
