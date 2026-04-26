@@ -1,9 +1,7 @@
-import json
 import logging
 import pandas as pd
-import re
 from datetime import datetime
-from typing import Dict, Any
+from typing import Dict, Any, Optional, List
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO)
@@ -28,9 +26,9 @@ def log_service_start(service_name: str, **kwargs) -> None:
 
 
 def calculate_cashback_categories(
-    year: int,
-    month: int,
-    transactions: pd.DataFrame
+        year: int,
+        month: int,
+        transactions: pd.DataFrame
 ) -> Dict[str, Any]:
     """
     Сервис «Выгодные категории повышенного кешбэка».
@@ -69,9 +67,13 @@ def calculate_cashback_categories(
     # Проверяем наличие всех необходимых столбцов
     if not all([date_col, category_col, amount_col]):
         missing = []
-        if not date_col: missing.append('Дата платежа')
-        if not category_col: missing.append('Категория')
-        if not amount_col: missing.append('Сумма операции')
+        if not date_col:
+            missing.append('Дата платежа')
+        if not category_col:
+            missing.append('Категория')
+        if not amount_col:
+            missing.append('Сумма операции')
+
         logger.error(f"Отсутствуют обязательные столбцы: {missing}")
         return {
             "error": f"Отсутствуют обязательные столбцы: {', '.join(missing)}",
@@ -82,15 +84,18 @@ def calculate_cashback_categories(
     df[date_col] = pd.to_datetime(df[date_col], dayfirst=True, errors='coerce')
 
     # Определяем условие для транзакций с кешбэком
-    is_cashback = True
     if cashback_col and cashback_col in df.columns:
-        is_cashback = df[cashback_col].astype(str).str.lower().isin(['true', '1', 'да', 'yes'])
+        # Создаём булевую маску для строк с кешбэком
+        cashback_mask = df[cashback_col].astype(str).str.lower().isin(['true', '1', 'да', 'yes'])
+    else:
+        # Если колонки нет, считаем все транзакции подходящими для кешбэка
+        cashback_mask = pd.Series([True] * len(df), index=df.index)
 
     # Фильтруем транзакции за указанный период и с кешбэком
     filtered_transactions = df[
-        (df[date_col].dt.year == year) &
-        (df[date_col].dt.month == month) &
-        is_cashback
+        (df[date_col].dt.year == year)
+        & (df[date_col].dt.month == month)
+        & cashback_mask
     ]
 
     # Если нет транзакций с кешбэком, возвращаем пустой результат
@@ -106,7 +111,6 @@ def calculate_cashback_categories(
 
     # Агрегация по категориям: суммируем сумму для каждой категории
     category_totals = filtered_transactions.groupby(category_col)[amount_col].sum().to_dict()
-
 
     # Округляем суммы до 2 знаков после запятой
     category_totals = {k: round(v, 2) for k, v in category_totals.items()}
@@ -124,10 +128,11 @@ def calculate_cashback_categories(
     logger.info(f"Расчёт кешбэка завершён. Найдено категорий: {len(category_totals)}")
     return result
 
+
 def investment_bank(
-    month: str,
-    transactions: List[Dict[str, Any]],
-    limit: int
+        month: str,
+        transactions: List[Dict[str, Any]],
+        limit: int
 ) -> float:
     """
     Сервис «Инвесткопилка».
@@ -146,7 +151,7 @@ def investment_bank(
     }
     """
     logger.info(f"Запуск сервиса 'investment_bank' с параметрами: month={month}, limit={limit}, "
-               f"количество транзакций={len(transactions)}")
+                f"количество транзакций={len(transactions)}")
 
     # Валидация лимита округления
     if limit not in [10, 50, 100]:
@@ -217,12 +222,45 @@ def investment_bank(
     return investment_sum_rounded
 
 
+# def simple_transaction_search(
+#         transactions: pd.DataFrame,
+#         search_term: str,
+#         column_name: Optional[str] = None
+# ) -> pd.DataFrame:
+#     logger.info(f"Запуск поиска транзакций по запросу: '{search_term}'")
+#
+#     df = transactions.copy()
+#
+#     if column_name:
+#         # Поиск в конкретной колонке
+#         if column_name not in df.columns:
+#             raise ValueError(f"Колонка '{column_name}' не найдена")
+#         result = df[df[column_name].astype(str).str.contains(search_term, case=False, na=False)]
+#     else:
+#         # Поиск по всем колонкам
+#         result = pd.DataFrame()
+#         for col in df.columns:
+#             try:
+#                 mask = df[col].astype(str).str.contains(search_term, case=False, na=False)
+#                 result = pd.concat([result, df[mask]], ignore_index=True)
+#             except (KeyError, AttributeError, TypeError) as e:
+#                 logger.warning(f"Ошибка при поиске в колонке {col}: {e}")
+#                 continue
+#
+#     logger.info(f"Найдено {len(result)} транзакций")
+#     return result
+
 def simple_transaction_search(
-    transactions: pd.DataFrame,
-    search_term: str,
-    column_name: Optional[str] = None
+        transactions: pd.DataFrame,
+        search_term: str,
+        column_name: Optional[str] = None
 ) -> pd.DataFrame:
     logger.info(f"Запуск поиска транзакций по запросу: '{search_term}'")
+
+    # Проверка типа входных данных
+    if not isinstance(transactions, pd.DataFrame):
+        logger.error(f"Ожидался DataFrame, получен {type(transactions)}")
+        return pd.DataFrame()
 
     df = transactions.copy()
 
@@ -238,12 +276,12 @@ def simple_transaction_search(
             try:
                 mask = df[col].astype(str).str.contains(search_term, case=False, na=False)
                 result = pd.concat([result, df[mask]], ignore_index=True)
-            except:
+            except (KeyError, AttributeError, TypeError) as e:
+                logger.warning(f"Ошибка при поиске в колонке {col}: {e}")
                 continue
 
     logger.info(f"Найдено {len(result)} транзакций")
     return result
-
 
 
 
@@ -261,12 +299,12 @@ def transactions_with_phone_numbers(transactions: pd.DataFrame) -> pd.DataFrame:
                 temp_df = df[mask].copy()
                 temp_df['Найденный номер'] = df[col][mask].astype(str)
                 result = pd.concat([result, temp_df], ignore_index=True)
-        except:
+        except (KeyError, AttributeError, TypeError) as e:
+            logger.warning(f"Ошибка при поиске по колонке {col}: {e}")
             continue
 
     logger.info(f"Найдено транзакций с номерами: {len(result)}")
     return result
-
 
 
 def transfers_to_individuals(transactions: pd.DataFrame) -> pd.DataFrame:
@@ -290,4 +328,3 @@ def transfers_to_individuals(transactions: pd.DataFrame) -> pd.DataFrame:
 
     logger.info(f"Найдено переводов физлицам: {len(result)}")
     return result
-

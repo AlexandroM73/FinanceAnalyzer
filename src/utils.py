@@ -1,4 +1,3 @@
-import json
 import logging
 import pandas as pd
 import requests
@@ -19,6 +18,7 @@ def find_column(dataframe, column_names):
             return col
     return None
 
+
 def fetch_external_data(api_url: str, params: dict) -> dict:
     """
     Вспомогательная функция для получения данных через API.
@@ -32,6 +32,7 @@ def fetch_external_data(api_url: str, params: dict) -> dict:
     except requests.exceptions.RequestException as e:
         logger.error(f"Ошибка при запросе к API {api_url}: {e}")
         raise
+
 
 def process_dashboard_metrics(data: dict, reference_date: datetime) -> dict:
     """
@@ -56,6 +57,7 @@ def process_dashboard_metrics(data: dict, reference_date: datetime) -> dict:
     }
 
     return metrics
+
 
 def get_dashboard_data(reference_date: datetime) -> dict:
     """
@@ -93,6 +95,7 @@ def get_dashboard_data(reference_date: datetime) -> dict:
             "error": str(e),
             "status": "error"
         }
+
 
 def get_events_data(transactions_df: pd.DataFrame) -> dict:
     """

@@ -1,9 +1,7 @@
 import unittest
-from unittest.mock import patch, Mock
+from unittest.mock import patch
 from parameterized import parameterized
 import pandas as pd
-from datetime import datetime, timedelta
-
 
 from src.reports import (
     spending_by_category,
@@ -11,6 +9,7 @@ from src.reports import (
     spending_by_workday,
     save_report_to_file
 )
+
 
 class TestReports(unittest.TestCase):
 
@@ -99,14 +98,12 @@ class TestReports(unittest.TestCase):
         result = spending_by_category(partial_df, self.category, self.date)
         self.assertTrue(result.empty)
 
-
     @patch('src.reports.save_report_to_file')
     def test_spending_by_category_with_decorator(self, mock_decorator):
         """Тест работы с декоратором сохранения отчёта"""
         mock_decorator.return_value = lambda func: func
         result = spending_by_category(self.test_transactions_df, self.category, self.date)
         self.assertFalse(result.empty)
-
 
     # Тесты для spending_by_weekday
     def test_spending_by_weekday_valid_data(self):
@@ -177,7 +174,6 @@ class TestReports(unittest.TestCase):
         result = spending_by_workday(partial_df, self.date)
         self.assertTrue(result.empty)
 
-
     # Тесты для декоратора save_report_to_file
 
     @patch('os.path.exists')
@@ -212,5 +208,3 @@ class TestReports(unittest.TestCase):
         called_filename = mock_open.call_args[0][0]
         self.assertIn("another_test_func", called_filename)
         self.assertIn(".json", called_filename)
-
-

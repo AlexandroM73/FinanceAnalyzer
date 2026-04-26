@@ -1,8 +1,6 @@
 import unittest
-from unittest.mock import patch, Mock
 
 import pandas as pd
-from datetime import datetime
 
 from src.services import (
     calculate_cashback_categories,
@@ -11,10 +9,7 @@ from src.services import (
     transactions_with_phone_numbers,
     transfers_to_individuals,
     find_column_in_dict,
-    log_service_start
 )
-
-from parameterized import parameterized
 
 
 class TestServices(unittest.TestCase):
@@ -87,14 +82,12 @@ class TestServices(unittest.TestCase):
         result = find_column_in_dict(transaction, ['Дата платежа', 'Payment Date'])
         self.assertIsNone(result)
 
-
     def test_calculate_cashback_empty_dataframe(self):
         """Тест с пустым DataFrame"""
         empty_df = pd.DataFrame()
         result = calculate_cashback_categories(2023, 10, empty_df)
         self.assertEqual(result['status'], 'success')
         self.assertEqual(result['total_amount'], 0.0)
-
 
     def test_investment_bank_empty_transactions(self):
         """Тест с пустым списком транзакций"""
@@ -170,7 +163,6 @@ class TestServices(unittest.TestCase):
         self.assertEqual(len(result), 0)
 
         # Тесты для transfers_to_individuals
-
 
     def test_transfers_to_individuals_not_found(self):
         """Тест когда переводы физлицам не найдены"""

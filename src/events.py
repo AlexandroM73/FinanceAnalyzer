@@ -14,12 +14,14 @@ CURRENCY_API_URL = "https://api.exchangerate-api.com/v4/latest/RUB"
 STOCK_API_URL = "https://www.alphavantage.co/query"
 ALPHA_VANTAGE_KEY = "sk_1234567890abcdef1234567890abcde"
 
+
 def find_column(df: pd.DataFrame, possible_names: list) -> str:
     """Ищет колонку в DataFrame по списку возможных имён."""
     for name in possible_names:
         if name in df.columns:
             return name
     return None
+
 
 def generate_sample_data() -> pd.DataFrame:
     """Генерирует тестовые данные при отсутствии файла."""
@@ -33,6 +35,7 @@ def generate_sample_data() -> pd.DataFrame:
     df = pd.DataFrame(sample_data)
     df['date'] = pd.to_datetime(df['date'])
     return df
+
 
 def get_date_range(target_date: datetime, range_type: str) -> tuple:
     """Определяет диапазон дат в зависимости от типа диапазона."""
@@ -52,6 +55,7 @@ def get_date_range(target_date: datetime, range_type: str) -> tuple:
         start = target_date.replace(day=1)
         end = target_date
     return start, end
+
 
 def load_transactions(file_path: str = "data/operations.xlsx") -> pd.DataFrame:
     """Загружает транзакции из Excel‑файла."""
@@ -79,6 +83,7 @@ def load_transactions(file_path: str = "data/operations.xlsx") -> pd.DataFrame:
         logger.error(f"Ошибка загрузки транзакций: {e}")
         return pd.DataFrame()
 
+
 def analyze_expenses(df: pd.DataFrame) -> dict:
     """Анализирует расходы: общие суммы и разбивку по категориям."""
     if df.empty:
@@ -92,7 +97,6 @@ def analyze_expenses(df: pd.DataFrame) -> dict:
     total_amount = int(expenses_df['amount'].sum())
     main_categories = expenses_df[~expenses_df['category'].isin(['Наличные', 'Переводы'])]
     main_grouped = main_categories.groupby('category')['amount'].sum().nlargest(7)
-
 
     if len(main_grouped) > 7:
         top_7 = main_grouped.head(6)
@@ -113,6 +117,7 @@ def analyze_expenses(df: pd.DataFrame) -> dict:
         "transfers_and_cash": tac_data
     }
 
+
 def analyze_income(df: pd.DataFrame) -> dict:
     """Анализирует поступления: общую сумму и разбивку по категориям."""
     if df.empty:
@@ -127,6 +132,7 @@ def analyze_income(df: pd.DataFrame) -> dict:
     income_data = [{"category": cat, "amount": int(amount)} for cat, amount in income_grouped.items()]
 
     return {"total_amount": total_amount, "main": income_data}
+
 
 def get_currency_rates() -> list:
     """Получает курсы валют."""

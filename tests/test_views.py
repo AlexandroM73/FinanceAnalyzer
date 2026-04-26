@@ -1,10 +1,9 @@
 import unittest
-from unittest.mock import patch, Mock
-from datetime import datetime
-from flask import jsonify
+from unittest.mock import patch
 from src.views import app
 import pandas as pd
 from parameterized import parameterized
+from datetime import datetime, timedelta
 
 
 class TestViews(unittest.TestCase):
@@ -72,12 +71,10 @@ class TestViews(unittest.TestCase):
 
         response = self.app.get('/events')
 
-
         self.assertEqual(response.status_code, 200)
         data = response.get_json()
         self.assertEqual(data['total_count'], 0)
         self.assertEqual(len(data['events']), 0)
-
 
         # Дополнительные параметризованные тесты
         @parameterized.expand([
@@ -165,7 +162,6 @@ class TestViews(unittest.TestCase):
             # Проверяем, что все даты корректно преобразованы в datetime
             for event in data['events']:
                 self.assertTrue(isinstance(pd.to_datetime(event['Дата операции']), pd.Timestamp))
-
 
     if __name__ == '__main__':
         unittest.main()

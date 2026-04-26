@@ -1,10 +1,10 @@
-import json
 from datetime import datetime
 from flask import Flask, jsonify, request
 import pandas as pd
 from src.utils import get_dashboard_data, get_events_data
 
 app = Flask(__name__)
+
 
 @app.route('/home', methods=['GET'])
 def home_page():
@@ -33,22 +33,6 @@ def home_page():
     # Возвращаем JSON‑ответ
     return jsonify(result_data)
 
-# @app.route('/events', methods=['GET'])
-# def events_page():
-#     """
-#     Функция для страницы «События».
-#     """
-#     try:
-#         # Загружаем данные из Excel
-#         df = pd.read_excel('data/operations.xlsx')
-#         if 'Дата операции' in df.columns:
-#             df['Дата операции'] = pd.to_datetime(df['Дата операции'])
-#
-#         # Вызываем вспомогательную функцию для обработки данных
-#         result_data = get_events_data(df)
-#         return jsonify(result_data)
-#     except Exception as e:
-#         return jsonify({"error": f"Ошибка при загрузке данных: {str(e)}"}), 500
 
 @app.route('/events', methods=['GET'])
 def events_page():
@@ -63,6 +47,7 @@ def events_page():
         return jsonify({"status": "error", "error": f"Ошибка при загрузке данных: {error_msg}"}), 500
     except Exception as e:
         return jsonify({"status": "error", "error": f"Ошибка обработки данных: {str(e)}"}), 500
+
 
 if __name__ == '__main__':
     app.run(debug=True)

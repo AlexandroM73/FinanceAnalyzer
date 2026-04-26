@@ -1,9 +1,11 @@
 import json
 import pandas as pd
 from datetime import datetime
+from typing import List, Dict, Any
 import logging
 
 logger = logging.getLogger(__name__)
+
 
 def get_greeting(input_datetime: str) -> str:
     """Определяет приветствие в зависимости от времени суток."""
@@ -22,6 +24,7 @@ def get_greeting(input_datetime: str) -> str:
     except ValueError as e:
         logger.error(f"Ошибка парсинга даты: {e}")
         return "Здравствуйте"
+
 
 def load_transactions_from_excel() -> pd.DataFrame:
     """Загружает транзакции из Excel‑файла с обработкой ошибок."""
@@ -80,6 +83,7 @@ def calculate_card_stats(transactions: pd.DataFrame) -> List[Dict[str, Any]]:
 
     return cards_stats
 
+
 def get_top_transactions(transactions: pd.DataFrame, top_n: int = 5) -> List[Dict[str, Any]]:
     """Получает топ‑N транзакций по сумме платежа."""
     if transactions.empty:
@@ -101,12 +105,14 @@ def get_top_transactions(transactions: pd.DataFrame, top_n: int = 5) -> List[Dic
 
     return top_transactions
 
+
 def get_currency_rates() -> List[Dict[str, Any]]:
     """Получает курсы валют (заглушка — в реальности нужно API)."""
     return [
         {"currency": "USD", "rate": 73.21},
         {"currency": "EUR", "rate": 87.08}
     ]
+
 
 def get_stock_prices() -> List[Dict[str, Any]]:
     """Получает стоимость акций из S&P500 (заглушка)."""
@@ -117,6 +123,7 @@ def get_stock_prices() -> List[Dict[str, Any]]:
         {"stock": "MSFT", "price": 296.71},
         {"stock": "TSLA", "price": 1007.08}
     ]
+
 
 def main_page(input_datetime: str) -> str:
     """

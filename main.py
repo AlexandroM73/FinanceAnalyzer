@@ -1,12 +1,12 @@
 import json
 import logging
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 import pandas as pd
 
 from src.main_page import main_page
-from src.reports import find_column, spending_by_category, spending_by_weekday, spending_by_workday
+from src.reports import spending_by_category, spending_by_weekday, spending_by_workday
 from src.services import (
     calculate_cashback_categories,
     investment_bank,
@@ -14,11 +14,9 @@ from src.services import (
     transactions_with_phone_numbers,
     transfers_to_individuals,
 )
-from src.utils import fetch_external_data, get_dashboard_data, get_events_data, process_dashboard_metrics
 
 # Очищаем существующие обработчики, чтобы избежать конфликтов
 logging.getLogger().handlers.clear()
-
 
 logging.basicConfig(
     level=logging.DEBUG,  # Самый низкий уровень — записываем всё
@@ -28,7 +26,6 @@ logging.basicConfig(
     ]
 )
 logger = logging.getLogger(__name__)  # Определяем logger ДО любых вызовов
-
 
 
 def load_transactions_from_excel() -> pd.DataFrame:
@@ -189,7 +186,6 @@ def run_cashback_service(transactions_df: pd.DataFrame):
     display_result(result)
 
 
-
 def run_investment_service(transactions_df: pd.DataFrame):
     """Запуск сервиса Инвесткопилки."""
     year = get_user_input("Год (например, 2023): ", int)
@@ -209,7 +205,6 @@ def run_investment_service(transactions_df: pd.DataFrame):
     display_result(result, "РЕЗУЛЬТАТ ИНВЕСТКОПИЛКИ")
 
 
-
 def run_simple_search(transactions_df: pd.DataFrame):
     """Запуск простого поиска."""
     query = get_user_input("Введите поисковый запрос: ")
@@ -218,20 +213,18 @@ def run_simple_search(transactions_df: pd.DataFrame):
     display_result(result)
 
 
-
 def run_phone_search(transactions: List[Dict[str, Any]]):
     """Запуск поиска по телефонным номерам."""
     result = transactions_with_phone_numbers(transactions)
     display_result(result)
 
 
-def simple_transaction_search(query: str, data: pd.DataFrame) -> pd.DataFrame:
-    if data.empty:
-        return pd.DataFrame()
-    # Ищем во всех строковых колонках
-    mask = data.astype(str).apply(lambda row: row.str.contains(query, case=False, na=False)).any(axis=1)
-    return data[mask]
-
+# def simple_transaction_search(query: str, data: pd.DataFrame) -> pd.DataFrame:
+#     if data.empty:
+#         return pd.DataFrame()
+#     # Ищем во всех строковых колонках
+#     mask = data.astype(str).apply(lambda row: row.str.contains(query, case=False, na=False)).any(axis=1)
+#     return data[mask]
 
 
 # def run_category_report(transactions_df: pd.DataFrame):
@@ -272,7 +265,8 @@ def run_category_report(transactions_df: pd.DataFrame):
             reference_date = date_str
             break
         except ValueError:
-            print("Ошибка: неверный формат даты. Введите в формате ГГГГ‑ММ‑ДД (например, 2023‑10‑15) или оставьте поле пустым.")
+            print(
+                "Ошибка: неверный формат даты. Введите в формате ГГГГ‑ММ‑ДД (например, 2023‑10‑15) или оставьте поле пустым.")
 
     try:
         # Передаём весь DataFrame и параметры в функцию отчёта
@@ -292,7 +286,6 @@ def run_weekday_report(transactions_df: pd.DataFrame):
     date_input = get_user_input("Введите дату для отчёта (ГГГГ‑ММ‑ДД, или оставьте пустым для текущей даты): ")
     reference_date = None
 
-
     if date_input.strip():
         try:
             reference_date = datetime.strptime(date_input, "%Y-%m-%d")
@@ -305,6 +298,7 @@ def run_weekday_report(transactions_df: pd.DataFrame):
     except Exception as e:
         logger.error(f"Ошибка при формировании отчёта «Траты по дням недели»: {e}")
         print(f"Произошла ошибка при формировании отчёта: {e}")
+
 
 def run_workday_weekend_report(transactions_df: pd.DataFrame):
     """Запуск отчёта «Траты в рабочий/выходной день»."""
@@ -323,7 +317,6 @@ def run_workday_weekend_report(transactions_df: pd.DataFrame):
     except Exception as e:
         logger.error(f"Ошибка при формировании отчёта «Траты в рабочий/выходной день»: {e}")
         print(f"Произошла ошибка при формировании отчёта: {e}")
-
 
 
 def main():
@@ -378,7 +371,6 @@ def main():
             elif choice == 25:  # Поиск переводов физическим лицам
                 result = transfers_to_individuals(transactions_df)
                 display_result(result, "РЕЗУЛЬТАТ ПОИСКА ПЕРЕВОДОВ ФИЗЛИЦАМ")
-
 
             # Отчёты
             elif choice == 31:  # Траты по категории

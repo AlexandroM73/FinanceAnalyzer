@@ -4,6 +4,7 @@ import pandas as pd
 from datetime import datetime, timedelta
 from typing import Optional, Callable
 import os
+
 # from utils import find_column
 
 # Настройка логирования
@@ -20,22 +21,13 @@ days_ru = {
     6: 'Воскресенье'
 }
 
+
 def find_column(df: pd.DataFrame, possible_names: list) -> str:
     """Ищет колонку в DataFrame по списку возможных имён."""
     for name in possible_names:
         if name in df.columns:
             return name
     return None
-
-# def find_column(df: pd.DataFrame, possible_names: list) -> str:
-#     """
-#     Ищет колонку в DataFrame по списку возможных имён.
-#     Возвращает первое найденное имя колонки или None, если ни одно не найдено.
-#     """
-#     for name in possible_names:
-#         if name in df.columns:
-#             return name
-#     return None
 
 
 # --- ДЕКОРАТОР ДЛЯ ЗАПИСИ ОТЧЁТА В ФАЙЛ ---
@@ -94,73 +86,12 @@ def save_report_to_file(filename: Optional[str] = None):
 
             # 5. Возвращаем исходный DataFrame
             return result_df
+
         return wrapper
+
     return decorator
 
 
-
-# --- ОТЧЁТЫ ---
-# @save_report_to_file()
-# def spending_by_category(
-#         transactions: pd.DataFrame,
-#         category: str,
-#         date: Optional[str] = None
-# ) -> pd.DataFrame:
-#     logger.info(f"Запуск отчёта «Траты по категории» для категории '{category}'")
-#
-#     # Валидация входных данных
-#     if transactions.empty:
-#         logger.warning("Получен пустой DataFrame")
-#         return pd.DataFrame()
-#
-#     required_columns = ['Дата платежа', 'Категория', 'Сумма операции']
-#     missing_cols = [col for col in required_columns if col not in transactions.columns]
-#     if missing_cols:
-#         logger.error(f"Отсутствуют обязательные столбцы: {missing_cols}")
-#         return pd.DataFrame()
-#
-#     # Создаём копию для избежания изменения оригинала
-#     df = transactions.copy()
-#
-#     # ИЩЕМ КОЛОНКУ С ДАТОЙ
-#     date_col = find_column(transactions, ['Дата платежа', 'Дата операции'])
-#     if date_col is None:
-#         logger.error("Не найдена колонка с датой платежа/операции")
-#         return pd.DataFrame()
-#
-#     # Устанавливаем дату отсчёта
-#     if date is None:
-#         start_date = datetime.now()
-#     else:
-#         try:
-#             start_date = pd.to_datetime(date, format='%Y-%m-%d')
-#         except ValueError:
-#             logger.error(f"Неверный формат даты: {date}. Ожидаемый формат ГГГГ‑ММ‑ДД")
-#             return pd.DataFrame()
-#
-#     three_months_ago = start_date - timedelta(days=90)
-#
-#     # Преобразуем колонку с датой
-#     df[date_col] = pd.to_datetime(df[date_col], dayfirst=True, errors='coerce')
-#
-#     # Фильтруем транзакции
-#     filtered_df = df[
-#         (df[date_col] >= three_months_ago) &
-#         (df[date_col] <= start_date) &
-#         (df['Категория'] == category)
-#         ]
-#
-#     # Группируем по месяцам и суммируем траты
-#     monthly_spending = filtered_df.groupby(
-#         filtered_df[date_col].dt.to_period('M')
-#     )['Сумма операции'].sum().reset_index()
-#     monthly_spending.columns = ['Месяц', 'Сумма']
-#
-#     # Преобразуем Period в строку формата ГГГГ‑ММ
-#     monthly_spending['Месяц'] = monthly_spending['Месяц'].dt.strftime('%Y-%m')
-#
-#     logger.info(f"Отчёт «Траты по категории» завершён. Строк в результате: {len(monthly_spending)}")
-#     return monthly_spending
 @save_report_to_file()
 def spending_by_category(
         transactions: pd.DataFrame,
@@ -203,9 +134,9 @@ def spending_by_category(
 
     # Фильтруем транзакции
     filtered_df = df[
-        (df[date_col] >= three_months_ago) &
-        (df[date_col] <= start_date) &
-        (df['Категория'] == category)
+        (df[date_col] >= three_months_ago)
+        & (df[date_col] <= start_date)
+        & (df['Категория'] == category)
     ]
 
     # Группируем по месяцам и суммируем траты
@@ -219,7 +150,6 @@ def spending_by_category(
 
     logger.info(f"Отчёт «Траты по категории» завершён. Строк в результате: {len(monthly_spending)}")
     return monthly_spending
-
 
 
 def spending_by_weekday(transactions: pd.DataFrame, date: Optional[str] = None) -> pd.DataFrame:

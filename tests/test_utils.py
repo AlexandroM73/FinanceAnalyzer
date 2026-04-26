@@ -7,7 +7,6 @@ from datetime import datetime, timedelta
 from src.utils import (
     fetch_external_data,
     process_dashboard_metrics,
-    get_dashboard_data,
     get_events_data,
     find_column
 )
