@@ -46,14 +46,14 @@ def process_dashboard_metrics(data: dict, reference_date: datetime) -> dict:
     df = pd.DataFrame(data)
 
     # Добавляем расчётные поля
-    df['days_since_reference'] = (df['date'] - reference_date).dt.days
+    df["days_since_reference"] = (df["date"] - reference_date).dt.days
 
     metrics = {
-        'total_records': len(df),
-        'recent_activity': len(df[df['days_since_reference'] <= 7]),
-        'average_value': round(df['value'].mean(), 2) if 'value' in df.columns else 0,
-        'max_value': df['value'].max() if 'value' in df.columns else None,
-        'min_value': df['value'].min() if 'value' in df.columns else None
+        "total_records": len(df),
+        "recent_activity": len(df[df["days_since_reference"] <= 7]),
+        "average_value": round(df["value"].mean(), 2) if "value" in df.columns else 0,
+        "max_value": df["value"].max() if "value" in df.columns else None,
+        "min_value": df["value"].min() if "value" in df.columns else None,
     }
 
     return metrics
@@ -69,10 +69,7 @@ def get_dashboard_data(reference_date: datetime) -> dict:
     try:
         # Получаем данные из внешнего API
         api_url = "https://api.example.com/dashboard"
-        api_params = {
-            'date': reference_date.strftime('%Y-%m-%d'),
-            'limit': 100
-        }
+        api_params = {"date": reference_date.strftime("%Y-%m-%d"), "limit": 100}
         external_data = fetch_external_data(api_url, api_params)
 
         # Обрабатываем метрики
@@ -83,7 +80,7 @@ def get_dashboard_data(reference_date: datetime) -> dict:
             "timestamp": datetime.now().isoformat(),
             "reference_date": reference_date.isoformat(),
             "metrics": metrics,
-            "status": "success"
+            "status": "success",
         }
 
         logger.info("Данные дашборда успешно подготовлены")
@@ -91,10 +88,7 @@ def get_dashboard_data(reference_date: datetime) -> dict:
 
     except Exception as e:
         logger.error(f"Ошибка при получении данных дашборда: {e}")
-        return {
-            "error": str(e),
-            "status": "error"
-        }
+        return {"error": str(e), "status": "error"}
 
 
 def get_events_data(transactions_df: pd.DataFrame) -> dict:
@@ -106,24 +100,18 @@ def get_events_data(transactions_df: pd.DataFrame) -> dict:
 
     try:
         if transactions_df.empty:
-            return {
-                "events": [],
-                "total_count": 0,
-                "status": "success"
-            }
+            return {"events": [], "total_count": 0, "status": "success"}
 
         # Пример обработки транзакций
-        recent_events = transactions_df[
-            transactions_df['Дата операции'] >= datetime.now() - timedelta(days=30)
-        ]
+        recent_events = transactions_df[transactions_df["Дата операции"] >= datetime.now() - timedelta(days=30)]
 
-        events_list = recent_events.to_dict('records')
+        events_list = recent_events.to_dict("records")
 
         result = {
             "events": events_list[:50],  # Ограничиваем вывод
             "total_count": len(recent_events),
             "processed_date": datetime.now().isoformat(),
-            "status": "success"
+            "status": "success",
         }
 
         logger.info(f"Обработано событий: {len(recent_events)}")
@@ -131,7 +119,4 @@ def get_events_data(transactions_df: pd.DataFrame) -> dict:
 
     except Exception as e:
         logger.error(f"Ошибка при обработке данных событий: {e}")
-        return {
-            "error": str(e),
-            "status": "error"
-        }
+        return {"error": str(e), "status": "error"}

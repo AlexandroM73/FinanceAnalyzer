@@ -26,14 +26,14 @@ def find_column(df: pd.DataFrame, possible_names: list) -> str:
 def generate_sample_data() -> pd.DataFrame:
     """Генерирует тестовые данные при отсутствии файла."""
     sample_data = [
-        {'date': '2023-12-01', 'category': 'Продукты', 'amount': -1500},
-        {'date': '2023-12-02', 'category': 'Транспорт', 'amount': -250},
-        {'date': '2023-12-03', 'category': 'Развлечения', 'amount': -800},
-        {'date': '2023-12-04', 'category': 'Наличные', 'amount': -5000},
-        {'date': '2023-12-05', 'category': 'Зарплата', 'amount': 50000}
+        {"date": "2023-12-01", "category": "Продукты", "amount": -1500},
+        {"date": "2023-12-02", "category": "Транспорт", "amount": -250},
+        {"date": "2023-12-03", "category": "Развлечения", "amount": -800},
+        {"date": "2023-12-04", "category": "Наличные", "amount": -5000},
+        {"date": "2023-12-05", "category": "Зарплата", "amount": 50000},
     ]
     df = pd.DataFrame(sample_data)
-    df['date'] = pd.to_datetime(df['date'])
+    df["date"] = pd.to_datetime(df["date"])
     return df
 
 
@@ -66,18 +66,15 @@ def load_transactions(file_path: str = "data/operations.xlsx") -> pd.DataFrame:
 
     try:
         df = pd.read_excel(file_path)
-        date_col = find_column(
-            df,
-            ['date', 'Дата платежа', 'Дата операции', 'transaction_date', 'payment_date']
-        )
+        date_col = find_column(df, ["date", "Дата платежа", "Дата операции", "transaction_date", "payment_date"])
         if date_col is None:
             logger.error("Не найдена колонка с датой в данных транзакций. Доступные колонки: %s", df.columns.tolist())
             return pd.DataFrame()
         logger.info(f"Найдена колонка с датой: '{date_col}' → переименована в 'date'")
-        df.rename(columns={date_col: 'date'}, inplace=True)
-        df['date'] = pd.to_datetime(df['date'], errors='coerce')
+        df.rename(columns={date_col: "date"}, inplace=True)
+        df["date"] = pd.to_datetime(df["date"], errors="coerce")
         # Удаляем строки с некорректными датами
-        df = df.dropna(subset=['date'])
+        df = df.dropna(subset=["date"])
         return df
     except Exception as e:
         logger.error(f"Ошибка загрузки транзакций: {e}")
@@ -89,14 +86,14 @@ def analyze_expenses(df: pd.DataFrame) -> dict:
     if df.empty:
         return {"total_amount": 0, "main": [], "transfers_and_cash": []}
 
-    expenses_df = df[df['amount'] < 0].copy()
+    expenses_df = df[df["amount"] < 0].copy()
     if expenses_df.empty:
         return {"total_amount": 0, "main": [], "transfers_and_cash": []}
-    expenses_df['amount'] = abs(expenses_df['amount'])
+    expenses_df["amount"] = abs(expenses_df["amount"])
 
-    total_amount = int(expenses_df['amount'].sum())
-    main_categories = expenses_df[~expenses_df['category'].isin(['Наличные', 'Переводы'])]
-    main_grouped = main_categories.groupby('category')['amount'].sum().nlargest(7)
+    total_amount = int(expenses_df["amount"].sum())
+    main_categories = expenses_df[~expenses_df["category"].isin(["Наличные", "Переводы"])]
+    main_grouped = main_categories.groupby("category")["amount"].sum().nlargest(7)
 
     if len(main_grouped) > 7:
         top_7 = main_grouped.head(6)
@@ -106,16 +103,12 @@ def analyze_expenses(df: pd.DataFrame) -> dict:
     else:
         main_data = [{"category": cat, "amount": int(amount)} for cat, amount in main_grouped.items()]
 
-    transfers_and_cash = expenses_df[expenses_df['category'].isin(['Наличные', 'Переводы'])]
-    tac_grouped = transfers_and_cash.groupby('category')['amount'].sum()
+    transfers_and_cash = expenses_df[expenses_df["category"].isin(["Наличные", "Переводы"])]
+    tac_grouped = transfers_and_cash.groupby("category")["amount"].sum()
     tac_data = [{"category": cat, "amount": int(amount)} for cat, amount in tac_grouped.items()]
-    tac_data.sort(key=lambda x: x['amount'], reverse=True)
+    tac_data.sort(key=lambda x: x["amount"], reverse=True)
 
-    return {
-        "total_amount": total_amount,
-        "main": main_data,
-        "transfers_and_cash": tac_data
-    }
+    return {"total_amount": total_amount, "main": main_data, "transfers_and_cash": tac_data}
 
 
 def analyze_income(df: pd.DataFrame) -> dict:
@@ -123,12 +116,12 @@ def analyze_income(df: pd.DataFrame) -> dict:
     if df.empty:
         return {"total_amount": 0, "main": []}
 
-    income_df = df[df['amount'] > 0]
+    income_df = df[df["amount"] > 0]
     if income_df.empty:
         return {"total_amount": 0, "main": []}
 
-    total_amount = int(income_df['amount'].sum())
-    income_grouped = income_df.groupby('category')['amount'].sum().nlargest(10)
+    total_amount = int(income_df["amount"].sum())
+    income_grouped = income_df.groupby("category")["amount"].sum().nlargest(10)
     income_data = [{"category": cat, "amount": int(amount)} for cat, amount in income_grouped.items()]
 
     return {"total_amount": total_amount, "main": income_data}
@@ -142,19 +135,16 @@ def get_currency_rates() -> list:
 
         data = response.json()
 
-        if 'rates' not in data:
+        if "rates" not in data:
             logger.error("В ответе API не найден ключ 'rates'")
             return []
 
-        rates = data['rates']
+        rates = data["rates"]
         result = []
 
-        for currency in ['USD', 'EUR']:
+        for currency in ["USD", "EUR"]:
             if currency in rates:
-                result.append({
-                    "currency": currency,
-                    "rate": round(rates[currency], 2)
-                })
+                result.append({"currency": currency, "rate": round(rates[currency], 2)})
             else:
                 logger.warning(f"Курс для валюты {currency} не найден в ответе API")
 

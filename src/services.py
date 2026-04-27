@@ -21,15 +21,11 @@ def find_column_in_dict(transaction: Dict[str, Any], possible_names: list) -> Op
 
 def log_service_start(service_name: str, **kwargs) -> None:
     """Шаблон логирования запуска сервиса."""
-    params = ', '.join(f"{k}={v}" for k, v in kwargs.items())
+    params = ", ".join(f"{k}={v}" for k, v in kwargs.items())
     logger.info(f"Запуск сервиса '{service_name}' с параметрами: {params}")
 
 
-def calculate_cashback_categories(
-        year: int,
-        month: int,
-        transactions: pd.DataFrame
-) -> Dict[str, Any]:
+def calculate_cashback_categories(year: int, month: int, transactions: pd.DataFrame) -> Dict[str, Any]:
     """
     Сервис «Выгодные категории повышенного кешбэка».
     Принимает год, месяц и DataFrame транзакций.
@@ -40,74 +36,52 @@ def calculate_cashback_categories(
     # Валидация входных данных
     if not (1 <= month <= 12):
         logger.error("Неверный месяц: должен быть от 1 до 12")
-        return {
-            "error": "Неверный месяц. Должен быть от 1 до 12",
-            "status": "error"
-        }
+        return {"error": "Неверный месяц. Должен быть от 1 до 12", "status": "error"}
 
     # Проверяем, пустой ли DataFrame
     if transactions.empty:
         logger.warning("Получен пустой DataFrame транзакций")
-        return {
-            "year": year,
-            "month": month,
-            "categories": {},
-            "total_amount": 0.0,
-            "status": "success"
-        }
+        return {"year": year, "month": month, "categories": {}, "total_amount": 0.0, "status": "success"}
 
     df = transactions.copy()
 
     # Ищем корректные имена столбцов
-    date_col = find_column_in_dict(df, ['Дата платежа', 'Дата операции', 'Payment Date', 'Date'])
-    category_col = find_column_in_dict(df, ['Категория', 'Category'])
-    amount_col = find_column_in_dict(df, ['Сумма операции', 'Amount', 'Сумма'])
-    cashback_col = find_column_in_dict(df, ['Кэшбэк', 'Cashback', 'IsCashback'])
+    date_col = find_column_in_dict(df, ["Дата платежа", "Дата операции", "Payment Date", "Date"])
+    category_col = find_column_in_dict(df, ["Категория", "Category"])
+    amount_col = find_column_in_dict(df, ["Сумма операции", "Amount", "Сумма"])
+    cashback_col = find_column_in_dict(df, ["Кэшбэк", "Cashback", "IsCashback"])
 
     # Проверяем наличие всех необходимых столбцов
     if not all([date_col, category_col, amount_col]):
         missing = []
         if not date_col:
-            missing.append('Дата платежа')
+            missing.append("Дата платежа")
         if not category_col:
-            missing.append('Категория')
+            missing.append("Категория")
         if not amount_col:
-            missing.append('Сумма операции')
+            missing.append("Сумма операции")
 
         logger.error(f"Отсутствуют обязательные столбцы: {missing}")
-        return {
-            "error": f"Отсутствуют обязательные столбцы: {', '.join(missing)}",
-            "status": "error"
-        }
+        return {"error": f"Отсутствуют обязательные столбцы: {', '.join(missing)}", "status": "error"}
 
     # Преобразуем столбец с датой в datetime с гибким парсингом
-    df[date_col] = pd.to_datetime(df[date_col], dayfirst=True, errors='coerce')
+    df[date_col] = pd.to_datetime(df[date_col], dayfirst=True, errors="coerce")
 
     # Определяем условие для транзакций с кешбэком
     if cashback_col and cashback_col in df.columns:
         # Создаём булевую маску для строк с кешбэком
-        cashback_mask = df[cashback_col].astype(str).str.lower().isin(['true', '1', 'да', 'yes'])
+        cashback_mask = df[cashback_col].astype(str).str.lower().isin(["true", "1", "да", "yes"])
     else:
         # Если колонки нет, считаем все транзакции подходящими для кешбэка
         cashback_mask = pd.Series([True] * len(df), index=df.index)
 
     # Фильтруем транзакции за указанный период и с кешбэком
-    filtered_transactions = df[
-        (df[date_col].dt.year == year)
-        & (df[date_col].dt.month == month)
-        & cashback_mask
-    ]
+    filtered_transactions = df[(df[date_col].dt.year == year) & (df[date_col].dt.month == month) & cashback_mask]
 
     # Если нет транзакций с кешбэком, возвращаем пустой результат
     if filtered_transactions.empty:
         logger.info("Транзакций с кешбэком за указанный период не найдено")
-        return {
-            "year": year,
-            "month": month,
-            "categories": {},
-            "total_amount": 0.0,
-            "status": "success"
-        }
+        return {"year": year, "month": month, "categories": {}, "total_amount": 0.0, "status": "success"}
 
     # Агрегация по категориям: суммируем сумму для каждой категории
     category_totals = filtered_transactions.groupby(category_col)[amount_col].sum().to_dict()
@@ -122,18 +96,14 @@ def calculate_cashback_categories(
         "month": month,
         "categories": category_totals,
         "total_amount": total_amount,
-        "status": "success"
+        "status": "success",
     }
 
     logger.info(f"Расчёт кешбэка завершён. Найдено категорий: {len(category_totals)}")
     return result
 
 
-def investment_bank(
-        month: str,
-        transactions: List[Dict[str, Any]],
-        limit: int
-) -> float:
+def investment_bank(month: str, transactions: List[Dict[str, Any]], limit: int) -> float:
     """
     Сервис «Инвесткопилка».
 
@@ -150,8 +120,10 @@ def investment_bank(
         "Сумма операции": float
     }
     """
-    logger.info(f"Запуск сервиса 'investment_bank' с параметрами: month={month}, limit={limit}, "
-                f"количество транзакций={len(transactions)}")
+    logger.info(
+        f"Запуск сервиса 'investment_bank' с параметрами: month={month}, limit={limit}, "
+        f"количество транзакций={len(transactions)}"
+    )
 
     # Валидация лимита округления
     if limit not in [10, 50, 100]:
@@ -160,7 +132,7 @@ def investment_bank(
 
     # Парсинг месяца
     try:
-        target_year, target_month = map(int, month.split('-'))
+        target_year, target_month = map(int, month.split("-"))
         if not (1 <= target_month <= 12):
             raise ValueError("Номер месяца должен быть от 1 до 12")
     except ValueError as e:
@@ -184,7 +156,7 @@ def investment_bank(
     for i, transaction in enumerate(transactions):
         try:
             # Извлекаем дату операции
-            date_str = transaction.get('Дата операции')
+            date_str = transaction.get("Дата операции")
             if not date_str:
                 logger.warning(f"Транзакция {i}: отсутствует поле 'Дата операции', пропускаем")
                 continue
@@ -196,7 +168,7 @@ def investment_bank(
                 continue
 
             # Извлекаем сумму операции
-            amount = transaction.get('Сумма операции')
+            amount = transaction.get("Сумма операции")
             if amount is None:
                 logger.warning(f"Транзакция {i}: отсутствует поле 'Сумма операции', пропускаем")
                 continue
@@ -250,10 +222,9 @@ def investment_bank(
 #     logger.info(f"Найдено {len(result)} транзакций")
 #     return result
 
+
 def simple_transaction_search(
-        transactions: pd.DataFrame,
-        search_term: str,
-        column_name: Optional[str] = None
+    transactions: pd.DataFrame, search_term: str, column_name: Optional[str] = None
 ) -> pd.DataFrame:
     logger.info(f"Запуск поиска транзакций по запросу: '{search_term}'")
 
@@ -284,12 +255,11 @@ def simple_transaction_search(
     return result
 
 
-
 def transactions_with_phone_numbers(transactions: pd.DataFrame) -> pd.DataFrame:
     logger.info("Запуск поиска транзакций с телефонными номерами")
 
     df = transactions.copy()
-    phone_pattern = r'\+?\d{10,15}'
+    phone_pattern = r"\+?\d{10,15}"
     result = pd.DataFrame()
 
     for col in df.columns:
@@ -297,7 +267,7 @@ def transactions_with_phone_numbers(transactions: pd.DataFrame) -> pd.DataFrame:
             mask = df[col].astype(str).str.contains(phone_pattern, na=False)
             if mask.any():
                 temp_df = df[mask].copy()
-                temp_df['Найденный номер'] = df[col][mask].astype(str)
+                temp_df["Найденный номер"] = df[col][mask].astype(str)
                 result = pd.concat([result, temp_df], ignore_index=True)
         except (KeyError, AttributeError, TypeError) as e:
             logger.warning(f"Ошибка при поиске по колонке {col}: {e}")
@@ -311,7 +281,7 @@ def transfers_to_individuals(transactions: pd.DataFrame) -> pd.DataFrame:
     logger.info("Запуск поиска переводов физическим лицам")
 
     df = transactions.copy()
-    keywords = ['перевод', 'перевести', 'физлицо', 'физическому лицу']
+    keywords = ["перевод", "перевести", "физлицо", "физическому лицу"]
     result = pd.DataFrame()
 
     for col in df.columns:
@@ -320,7 +290,7 @@ def transfers_to_individuals(transactions: pd.DataFrame) -> pd.DataFrame:
                 mask = df[col].astype(str).str.contains(keyword, case=False, na=False)
                 if mask.any():
                     temp_df = df[mask].copy()
-                    temp_df['Ключевое слово'] = keyword
+                    temp_df["Ключевое слово"] = keyword
                     result = pd.concat([result, temp_df], ignore_index=True)
             except Exception as e:
                 logger.warning(f"Ошибка при поиске по колонке {col}: {e}")

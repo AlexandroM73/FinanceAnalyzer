@@ -6,7 +6,7 @@ from src.utils import get_dashboard_data, get_events_data
 app = Flask(__name__)
 
 
-@app.route('/home', methods=['GET'])
+@app.route("/home", methods=["GET"])
 def home_page():
     """
     Функция для страницы «Главная».
@@ -14,7 +14,7 @@ def home_page():
     Возвращает корректный JSON‑ответ согласно ТЗ.
     """
     # Получаем параметр даты из запроса (например, ?datetime=2023-12-25 14:30:00)
-    date_string = request.args.get('datetime')
+    date_string = request.args.get("datetime")
 
     if not date_string:
         return jsonify({"error": "Параметр datetime обязателен"}), 400
@@ -23,9 +23,7 @@ def home_page():
         # Проверяем формат даты
         parsed_datetime = datetime.strptime(date_string, "%Y-%m-%d %H:%M:%S")
     except ValueError:
-        return jsonify({
-            "error": "Неверный формат даты. Ожидаемый формат: YYYY-MM-DD HH:MM:SS"
-        }), 400
+        return jsonify({"error": "Неверный формат даты. Ожидаемый формат: YYYY-MM-DD HH:MM:SS"}), 400
 
     # Вызываем вспомогательную функцию из utils.py
     result_data = get_dashboard_data(parsed_datetime)
@@ -34,12 +32,12 @@ def home_page():
     return jsonify(result_data)
 
 
-@app.route('/events', methods=['GET'])
+@app.route("/events", methods=["GET"])
 def events_page():
     try:
-        df = pd.read_excel('data/operations.xlsx')
-        if 'Дата операции' in df.columns:
-            df['Дата операции'] = pd.to_datetime(df['Дата операции'])
+        df = pd.read_excel("data/operations.xlsx")
+        if "Дата операции" in df.columns:
+            df["Дата операции"] = pd.to_datetime(df["Дата операции"])
         result_data = get_events_data(df)
         return jsonify(result_data)
     except FileNotFoundError:
@@ -49,5 +47,5 @@ def events_page():
         return jsonify({"status": "error", "error": f"Ошибка обработки данных: {str(e)}"}), 500
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     app.run(debug=True)
