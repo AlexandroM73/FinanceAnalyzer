@@ -20,10 +20,10 @@ logging.getLogger().handlers.clear()
 
 logging.basicConfig(
     level=logging.DEBUG,  # Самый низкий уровень — записываем всё
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     handlers=[
-        logging.FileHandler('app.log', encoding='utf-8', mode='w')  # 'w' — перезаписываем файл при каждом запуске
-    ]
+        logging.FileHandler("app.log", encoding="utf-8", mode="w")  # 'w' — перезаписываем файл при каждом запуске
+    ],
 )
 logger = logging.getLogger(__name__)  # Определяем logger ДО любых вызовов
 
@@ -31,15 +31,15 @@ logger = logging.getLogger(__name__)  # Определяем logger ДО люб�
 def load_transactions_from_excel() -> pd.DataFrame:
     """Загружает транзакции из Excel‑файла с обработкой ошибок."""
     try:
-        df = pd.read_excel('data/operations.xlsx')
+        df = pd.read_excel("data/operations.xlsx")
         # Проверяем наличие обязательных столбцов
-        required_columns = ['Дата операции', 'Категория', 'Сумма операции', 'Кэшбэк']
+        required_columns = ["Дата операции", "Категория", "Сумма операции", "Кэшбэк"]
         missing = [col for col in required_columns if col not in df.columns]
         if missing:
             raise ValueError(f"Отсутствуют столбцы: {', '.join(missing)}")
         # Преобразуем дату
-        if 'Дата операции' in df.columns:
-            df['Дата операции'] = pd.to_datetime(df['Дата операции'], errors='coerce')
+        if "Дата операции" in df.columns:
+            df["Дата операции"] = pd.to_datetime(df["Дата операции"], errors="coerce")
         logger.info("Данные успешно загружены из Excel")
         return df
     except FileNotFoundError:
@@ -59,32 +59,34 @@ def load_sample_data() -> tuple:
             "Категория": "Продукты",
             "Сумма операции": 1500.50,
             "Кэшбэк": True,
-            "Описание": "Покупка в супермаркете 'Пятёрочка'"
+            "Описание": "Покупка в супермаркете 'Пятёрочка'",
         },
         {
             "Дата операции": "2023-10-20 18:45:00",
             "Категория": "Развлечения",
             "Сумма операции": 800.00,
             "Кэшбэк": False,
-            "Описание": "Билет в кино + попкорн"
+            "Описание": "Билет в кино + попкорн",
         },
         {
             "Дата операции": "2023-11-05 12:15:00",
             "Категория": "Транспорт",
             "Сумма операции": 250.75,
             "Кэшбэк": True,
-            "Описание": "Оплата такси +79161234567"
-        }
+            "Описание": "Оплата такси +79161234567",
+        },
     ]
 
     # DataFrame для отчётов
-    df = pd.DataFrame([
-        {"Дата операции": "2023-09-01", "Категория": "Продукты", "Сумма операции": 1200.0, "Кэшбэк": True},
-        {"Дата операции": "2023-09-15", "Категория": "Развлечения", "Сумма операции": 800.0, "Кэшбэк": False},
-        {"Дата операции": "2023-10-01", "Категория": "Транспорт", "Сумма операции": 250.0, "Кэшбэк": True},
-        {"Дата операции": "2023-10-20", "Категория": "Продукты", "Сумма операции": 900.0, "Кэшбэк": True}
-    ])
-    df['Дата операции'] = pd.to_datetime(df['Дата операции'])
+    df = pd.DataFrame(
+        [
+            {"Дата операции": "2023-09-01", "Категория": "Продукты", "Сумма операции": 1200.0, "Кэшбэк": True},
+            {"Дата операции": "2023-09-15", "Категория": "Развлечения", "Сумма операции": 800.0, "Кэшбэк": False},
+            {"Дата операции": "2023-10-01", "Категория": "Транспорт", "Сумма операции": 250.0, "Кэшбэк": True},
+            {"Дата операции": "2023-10-20", "Категория": "Продукты", "Сумма операции": 900.0, "Кэшбэк": True},
+        ]
+    )
+    df["Дата операции"] = pd.to_datetime(df["Дата операции"])
 
     return sample_transactions, df
 
@@ -119,7 +121,7 @@ def display_menu() -> int:
                 return 0
 
             # Разбираем составной выбор
-            parts = choice.split('.')
+            parts = choice.split(".")
             if len(parts) != 2:
                 print("Ошибка: введите номер в формате X.Y (например, 2.1).")
                 continue
@@ -200,7 +202,7 @@ def run_investment_service(transactions_df: pd.DataFrame):
         print("Ошибка: лимит должен быть 10, 50 или 100.")
 
     # Преобразуем DataFrame в список словарей для сервиса
-    transactions_list = transactions_df.to_dict('records')
+    transactions_list = transactions_df.to_dict("records")
     result = investment_bank(month_str, transactions_list, rounding_limit)
     display_result(result, "РЕЗУЛЬТАТ ИНВЕСТКОПИЛКИ")
 
@@ -266,7 +268,8 @@ def run_category_report(transactions_df: pd.DataFrame):
             break
         except ValueError:
             print(
-                "Ошибка: неверный формат даты. Введите в формате ГГГГ‑ММ‑ДД (например, 2023‑10‑15) или оставьте поле пустым.")
+                "Ошибка: неверный формат даты. Введите в формате ГГГГ‑ММ‑ДД (например, 2023‑10‑15) или оставьте поле пустым."
+            )
 
     try:
         # Передаём весь DataFrame и параметры в функцию отчёта

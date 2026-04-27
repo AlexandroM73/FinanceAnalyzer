@@ -29,28 +29,28 @@ def get_greeting(input_datetime: str) -> str:
 def load_transactions_from_excel() -> pd.DataFrame:
     """Загружает транзакции из Excel‑файла с обработкой ошибок."""
     try:
-        df = pd.read_excel('data/operations.xlsx')
+        df = pd.read_excel("data/operations.xlsx")
 
         # Проверяем наличие обязательных столбцов
-        required_columns = ['Дата операции', 'Категория', 'Сумма операции', 'Номер карты']
+        required_columns = ["Дата операции", "Категория", "Сумма операции", "Номер карты"]
         missing = [col for col in required_columns if col not in df.columns]
         if missing:
             raise ValueError(f"Отсутствуют столбцы: {', '.join(missing)}")
 
         # Преобразуем дату с явным указанием формата (устраняет предупреждение)
-        df['Дата операции'] = pd.to_datetime(
-            df['Дата операции'],
-            format='%d.%m.%Y %H:%M:%S',  # Явный формат: день.месяц.год час:минута:секунда
-            errors='coerce'  # Некорректные даты заменяем на NaT
+        df["Дата операции"] = pd.to_datetime(
+            df["Дата операции"],
+            format="%d.%m.%Y %H:%M:%S",  # Явный формат: день.месяц.год час:минута:секунда
+            errors="coerce",  # Некорректные даты заменяем на NaT
         )
 
         # Проверяем, сколько дат не удалось преобразовать
-        failed_conversions = df['Дата операции'].isna().sum()
+        failed_conversions = df["Дата операции"].isna().sum()
         if failed_conversions > 0:
             logger.warning(f"Не удалось преобразовать {failed_conversions} дат в корректный формат")
 
         # Извлекаем последние 4 цифры карты
-        df['card_last_digits'] = df['Номер карты'].astype(str).str[-4:]
+        df["card_last_digits"] = df["Номер карты"].astype(str).str[-4:]
 
         logger.info("Данные успешно загружены из Excel")
         return df
@@ -68,18 +68,16 @@ def calculate_card_stats(transactions: pd.DataFrame) -> List[Dict[str, Any]]:
         return []
 
     # Группируем по картам (последние 4 цифры)
-    card_groups = transactions.groupby('card_last_digits')
+    card_groups = transactions.groupby("card_last_digits")
     cards_stats = []
 
     for card_digits, group in card_groups:
-        total_spent = group['Сумма операции'].sum()
+        total_spent = group["Сумма операции"].sum()
         cashback = round(total_spent / 100, 2)  # 1 рубль на каждые 100 рублей
 
-        cards_stats.append({
-            "last_digits": str(card_digits),
-            "total_spent": round(total_spent, 2),
-            "cashback": cashback
-        })
+        cards_stats.append(
+            {"last_digits": str(card_digits), "total_spent": round(total_spent, 2), "cashback": cashback}
+        )
 
     return cards_stats
 
@@ -90,28 +88,25 @@ def get_top_transactions(transactions: pd.DataFrame, top_n: int = 5) -> List[Dic
         return []
 
     # Сортируем по абсолютной величине суммы (чтобы крупные списания были вверху)
-    sorted_transactions = transactions.reindex(
-        transactions['Сумма операции'].abs().sort_values(ascending=False).index
-    )
+    sorted_transactions = transactions.reindex(transactions["Сумма операции"].abs().sort_values(ascending=False).index)
 
     top_transactions = []
     for _, row in sorted_transactions.head(top_n).iterrows():
-        top_transactions.append({
-            "date": row['Дата операции'].strftime("%d.%m.%Y"),
-            "amount": round(row['Сумма операции'], 2),
-            "category": row['Категория'],
-            "description": row.get('Описание', 'Без описания')
-        })
+        top_transactions.append(
+            {
+                "date": row["Дата операции"].strftime("%d.%m.%Y"),
+                "amount": round(row["Сумма операции"], 2),
+                "category": row["Категория"],
+                "description": row.get("Описание", "Без описания"),
+            }
+        )
 
     return top_transactions
 
 
 def get_currency_rates() -> List[Dict[str, Any]]:
     """Получает курсы валют (заглушка — в реальности нужно API)."""
-    return [
-        {"currency": "USD", "rate": 73.21},
-        {"currency": "EUR", "rate": 87.08}
-    ]
+    return [{"currency": "USD", "rate": 73.21}, {"currency": "EUR", "rate": 87.08}]
 
 
 def get_stock_prices() -> List[Dict[str, Any]]:
@@ -121,7 +116,7 @@ def get_stock_prices() -> List[Dict[str, Any]]:
         {"stock": "AMZN", "price": 3173.18},
         {"stock": "GOOGL", "price": 2742.39},
         {"stock": "MSFT", "price": 296.71},
-        {"stock": "TSLA", "price": 1007.08}
+        {"stock": "TSLA", "price": 1007.08},
     ]
 
 
@@ -160,7 +155,7 @@ def main_page(input_datetime: str) -> str:
             "cards": cards,
             "top_transactions": top_transactions,
             "currency_rates": currency_rates,
-            "stock_prices": stock_prices
+            "stock_prices": stock_prices,
         }
 
         logger.info("Главная страница успешно сформирована")
@@ -168,7 +163,5 @@ def main_page(input_datetime: str) -> str:
 
     except Exception as e:
         logger.error(f"Ошибка при формировании главной страницы: {e}")
-        error_response = {
-            "error": f"Произошла ошибка: {str(e)}"
-        }
+        error_response = {"error": f"Произошла ошибка: {str(e)}"}
         return json.dumps(error_response, ensure_ascii=False, indent=2)
